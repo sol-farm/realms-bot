@@ -1,0 +1,17 @@
+[package]
+name = "config"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8"
+thiserror = "1"
+anyhow = "1"
+simplelog = "0.10"
+log = "0.4"
+serde_json = "1"
+solana-sdk = "1.10.26"
+solana-client = "1.10.26"
