@@ -9,9 +9,6 @@
 //! features = ["framework", "standard_framework"]
 //! ```
 
-
-pub mod cache;
-
 use chrono::{DateTime, Utc};
 use crossbeam::sync::WaitGroup;
 use serenity::builder::CreateEmbed;
