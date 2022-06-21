@@ -145,6 +145,19 @@ mod test {
             &get_tulip_realm_account(),
             &get_tulip_council_mint()
         )
+    }
+    fn real_proposal_key() -> Pubkey {
+        Pubkey::from_str("BMVK7TYccgHR1Akjb1Hr9qDAfxWCGZEMt8V1Fo2U4GVn").unwrap()
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn log_proposal_account() {
+        let rpc = RpcClient::new("https://ssc-dao.genesysgo.net".to_string());
+        let proposal_key = real_proposal_key();
+        let proposal_account = rpc.get_account(&proposal_key).unwrap();
+        let mut proposal_account_tup = (proposal_key, proposal_account);
+        let proposal_account_info = proposal_account_tup.into_account_info();
+        let proposal = get_proposal_wrapper(&proposal_account_info).unwrap();
+        println!("{:#?}", proposal.proposal);
 
     }
     #[tokio::test(flavor = "multi_thread")]
@@ -165,8 +178,8 @@ mod test {
         let proposal_key = get_proposal_address(
             &GOVERNANCE_PROGRAM,
             &main_gov_key,
-            &get_tulip_council_mint(),
-            &(0_u64.to_le_bytes())
+            &get_tulip_community_mint(),
+            &(0_u32.to_le_bytes())
         );
 
 
