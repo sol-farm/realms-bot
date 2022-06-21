@@ -2,6 +2,7 @@
 
 pub mod types;
 pub mod utils;
+use crate::utils::governance_notif_cache_key;
 use anyhow::{anyhow, Result};
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use chrono::prelude::*;
@@ -16,6 +17,7 @@ use spl_governance::{
 use static_pubkey::static_pubkey;
 use std::sync::Arc;
 use tulip_sled_util::types::{DbKey, DbTrees};
+use types::NotifCacheEntry;
 use types::{
     get_governance_wrapper, get_proposal_wrapper, get_realm_wrapper, GovernanceV2Wrapper,
     ProposalV2Wrapper, RealmV2Wrapper,
@@ -56,6 +58,17 @@ impl Database {
             .open_tree(DbTrees::Custom(REALM_TREE))?
             .insert(realm)?;
         Ok(())
+    }
+    pub fn insert_notif_cache_entry(&self, cache_entry: &NotifCacheEntry) -> Result<()> {
+        self.db.open_tree(DbTrees::Default)?.insert(cache_entry)?;
+        Ok(())
+    }
+    pub fn get_governance_notif_cache(&self, governance_key: Pubkey) -> Result<NotifCacheEntry> {
+        let notif_cache = self
+            .db
+            .open_tree(DbTrees::Default)?
+            .deserialize(governance_notif_cache_key(governance_key))?;
+        Ok(notif_cache)
     }
     pub fn list_governances(&self) -> Result<Vec<GovernanceV2Wrapper>> {
         let tree = self.db.open_tree(DbTrees::Custom(GOVERNANCE_TREE))?;
@@ -162,6 +175,12 @@ impl Database {
         let mint_gov = get_governance_wrapper(&main_gov_info).unwrap();
         self.insert_governance(&mint_gov)?;
 
+        let mut notif_cache = NotifCacheEntry {
+            governance_key: mint_gov_key,
+            last_proposals_count: mint_gov.governance.proposals_count,
+            voting_proposals_last_notification_time: Vec::with_capacity(5),
+        };
+
         // now parse over all existing proposals, inserting them into the database
         for idx in 0..mint_gov.governance.proposals_count {
             let proposal_key = spl_governance::state::proposal::get_proposal_address(
@@ -178,8 +197,19 @@ impl Database {
             // if a vote has ended. really the only time this will likely be done on-chain is for a vote that is
             // completed
             proposal.finalize_vote(&mint_gov.governance.config, now);
+            if proposal.proposal.voting_at.is_some() {
+                if !proposal.has_vote_time_ended(&mint_gov.governance.config, now) {
+                    notif_cache
+                        .voting_proposals_last_notification_time
+                        .push((proposal.key, 0));
+                }
+            }
+
             self.insert_proposal(&proposal)?;
         }
+
+        // insert the notif cache entry
+        self.insert_notif_cache_entry(&notif_cache)?;
 
         Ok(())
     }
@@ -300,6 +330,14 @@ mod test {
             proposals.len(),
             governances[0].governance.proposals_count as usize
         );
+
+        let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
+        assert_eq!(notif_cache.governance_key, governances[0].key);
+        assert_eq!(
+            notif_cache.last_proposals_count,
+            governances[0].governance.proposals_count
+        );
+        assert_eq!(notif_cache.voting_proposals_last_notification_time.len(), 0);
 
         std::fs::remove_dir_all("realms_sdk2.db").unwrap();
     }

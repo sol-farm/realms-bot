@@ -1,7 +1,30 @@
 use chrono::prelude::*;
 use spl_governance::state::governance::GovernanceConfig;
 
+use crate::utils::governance_notif_cache_key;
+
 use super::*;
+
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
+pub struct NotifCacheEntry {
+    pub governance_key: Pubkey,
+    /// the total number of proposals tracked by the governance account the last time
+    /// a sample was taken
+    pub last_proposals_count: u32,
+    /// a vector at which the time a proposal which is actively voting
+    /// had a notification sent out, each element contains the values of (proposal_key, notif_time)
+    ///
+    /// if notif_time is 0, then it means no notification was sent out
+    pub voting_proposals_last_notification_time: Vec<(Pubkey, i64)>,
+}
+
+impl DbKey for NotifCacheEntry {
+    fn key(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(governance_notif_cache_key(self.governance_key)
+            .as_bytes()
+            .to_vec())
+    }
+}
 
 #[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
 pub struct GovernanceV2Wrapper {

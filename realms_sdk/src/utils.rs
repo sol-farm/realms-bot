@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use solana_program::pubkey::Pubkey;
 
 use crate::GOVERNANCE_TREE;
 use crate::{
@@ -49,6 +50,11 @@ impl Database {
 pub fn date_time_from_timestamp(timestamp: i64) -> DateTime<Utc> {
     DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc)
 }
+
+pub fn governance_notif_cache_key(gov_key: Pubkey) -> String {
+    format!("notif_cache_entry-{}", gov_key.to_string())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
