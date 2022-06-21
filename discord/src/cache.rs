@@ -136,6 +136,9 @@ mod test {
     fn get_tulip_council_mint() -> Pubkey {
         Pubkey::from_str("EzSjCzCPwpchdQVaGJZYpgDNagzasKFVGJ66Dmut26FL").unwrap()
     }
+    fn get_tulip_community_mint() -> Pubkey {
+        Pubkey::from_str("STuLiPmUCUtG1hQcwdc9de9sjYhVsYoucCiWqbApbpM").unwrap()
+    }
     fn get_tulip_governance_account() -> Pubkey {
         spl_governance::state::governance::get_mint_governance_address(
             &GOVERNANCE_PROGRAM,
