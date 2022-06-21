@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use simplelog::*;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::signature::{read_keypair_file, Keypair};
+
 use std::fs;
 use std::fs::File;
 /// main configuration object
@@ -30,9 +30,10 @@ pub struct Discord {
 }
 
 impl Configuration {
-    pub fn new(path: &str, as_json: bool) -> Result<()> {
+    pub fn new(path: &str, as_json: bool) -> Result<Self> {
         let config = Configuration::default();
-        config.save(path, as_json)
+        config.save(path, as_json)?;
+        Ok(config)
     }
     pub fn save(&self, path: &str, as_json: bool) -> Result<()> {
         let data = if as_json {

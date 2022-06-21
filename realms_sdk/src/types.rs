@@ -136,7 +136,6 @@ impl ProposalV2Wrapper {
                     return;
                 }
             } else {
-                return;
             }
         }
     }

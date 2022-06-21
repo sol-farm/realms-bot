@@ -10,11 +10,9 @@
 //! ```
 
 use chrono::{DateTime, Utc};
-use crossbeam::sync::WaitGroup;
-use serenity::builder::CreateEmbed;
+
 use serenity::prelude::*;
-use spl_token::solana_program::pubkey::Pubkey;
-use std::collections::HashMap;
+
 use std::sync::atomic::AtomicBool;
 use std::{collections::HashSet, sync::Arc};
 
@@ -22,27 +20,19 @@ use anyhow::Result;
 use config::Configuration;
 use crossbeam_channel::select;
 use log::{error, info, warn};
-use serenity::model::id::{GuildId, UserId};
+use serenity::model::id::GuildId;
 use serenity::{
     async_trait,
     client::bridge::gateway::ShardManager,
     framework::{standard::macros::group, StandardFramework},
     http::Http,
     model::{event::ResumedEvent, gateway::Ready, id::ChannelId},
-    utils::MessageBuilder,
 };
 
 pub struct ShardManagerContainer;
 
 impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
-}
-
-struct NotifCacheEntry {
-    last_notif: DateTime<Utc>,
-    // the time at which this entry was last seen. we have this set to an Option
-    // as we will not always use this
-    last_seen: Option<DateTime<Utc>>,
 }
 
 struct Handler {
@@ -68,7 +58,7 @@ impl Handler {
             let sleep_time = self.config.discord.worker_loop_frequency;
             let exit_chan = self.exit_chan.clone();
             let config = self.config.clone();
-            let rpc_client = Arc::new(self.config.rpc_client());
+            let _rpc_client = Arc::new(self.config.rpc_client());
 
             tokio::task::spawn(async move {
                 loop {

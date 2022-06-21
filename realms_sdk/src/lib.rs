@@ -3,7 +3,7 @@
 pub mod types;
 pub mod utils;
 use crate::utils::governance_notif_cache_key;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use chrono::prelude::*;
 use sled::IVec;
@@ -197,12 +197,12 @@ impl Database {
             // if a vote has ended. really the only time this will likely be done on-chain is for a vote that is
             // completed
             proposal.finalize_vote(&mint_gov.governance.config, now);
-            if proposal.proposal.voting_at.is_some() {
-                if !proposal.has_vote_time_ended(&mint_gov.governance.config, now) {
-                    notif_cache
-                        .voting_proposals_last_notification_time
-                        .push((proposal.key, 0));
-                }
+            if proposal.proposal.voting_at.is_some()
+                && !proposal.has_vote_time_ended(&mint_gov.governance.config, now)
+            {
+                notif_cache
+                    .voting_proposals_last_notification_time
+                    .push((proposal.key, 0));
             }
 
             self.insert_proposal(&proposal)?;
@@ -278,8 +278,10 @@ mod test {
         let proposal2_account_info = proposal2_account_tup.into_account_info();
         let proposal2 = get_proposal_wrapper(&proposal2_account_info).unwrap();
 
-        let mut opts = tulip_sled_util::config::DbOpts::default();
-        opts.path = "realms_sdk.db".to_string();
+        let opts = tulip_sled_util::config::DbOpts {
+            path: "realms_sdk_list_voting.db".to_string(),
+            ..Default::default()
+        };
 
         let db = Database::new(opts).unwrap();
 
@@ -301,14 +303,16 @@ mod test {
         assert_eq!(realms.len(), 1);
         assert_eq!(realms[0].key, realm_key);
 
-        std::fs::remove_dir_all("realms_sdk.db").unwrap();
+        std::fs::remove_dir_all("realms_sdk_list_voting.db").unwrap();
     }
     #[tokio::test(flavor = "multi_thread")]
     async fn test_populate_database_with_mint() {
         let rpc = RpcClient::new("https://ssc-dao.genesysgo.net".to_string());
 
-        let mut opts = tulip_sled_util::config::DbOpts::default();
-        opts.path = "realms_sdk2.db".to_string();
+        let opts = tulip_sled_util::config::DbOpts {
+            path: "realms_sdk_populate_mint.db".to_string(),
+            ..Default::default()
+        };
 
         let db = Database::new(opts).unwrap();
 
@@ -339,6 +343,6 @@ mod test {
         );
         assert_eq!(notif_cache.voting_proposals_last_notification_time.len(), 0);
 
-        std::fs::remove_dir_all("realms_sdk2.db").unwrap();
+        std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }
 }

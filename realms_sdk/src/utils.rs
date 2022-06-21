@@ -34,11 +34,10 @@ impl Database {
                 }
                 if let Some(governance_wrapper) = governance_wrapper.as_ref() {
                     //return !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now);
-                    return !proposal
-                        .has_vote_time_ended(&governance_wrapper.governance.config, now);
+                    !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now)
                 } else {
                     log::warn!("governance wrapper is None");
-                    return false;
+                    false
                 }
             })
             .collect();
@@ -52,7 +51,7 @@ pub fn date_time_from_timestamp(timestamp: i64) -> DateTime<Utc> {
 }
 
 pub fn governance_notif_cache_key(gov_key: Pubkey) -> String {
-    format!("notif_cache_entry-{}", gov_key.to_string())
+    format!("notif_cache_entry-{}", gov_key)
 }
 
 #[cfg(test)]
@@ -75,8 +74,10 @@ mod test {
     async fn test_list_voting_proposals() {
         let rpc = RpcClient::new("https://ssc-dao.genesysgo.net".to_string());
 
-        let mut opts = tulip_sled_util::config::DbOpts::default();
-        opts.path = "realms_sdk_list_voting.db".to_string();
+        let opts = tulip_sled_util::config::DbOpts {
+            path: "realms_sdk_list_voting2.db".to_string(),
+            ..Default::default()
+        };
 
         let db = Database::new(opts).unwrap();
 
@@ -111,6 +112,6 @@ mod test {
         let voting_proposals = db.list_voting_proposals(now).unwrap();
         assert_eq!(voting_proposals.len(), 6);
 
-        std::fs::remove_dir_all("realms_sdk_list_voting.db").unwrap();
+        std::fs::remove_dir_all("realms_sdk_list_voting2.db").unwrap();
     }
 }
