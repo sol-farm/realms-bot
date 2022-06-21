@@ -125,8 +125,8 @@ pub fn get_governance_wrapper(
 mod test {
     use std::str::FromStr;
     use solana_program::pubkey::Pubkey;
+    use spl_governance::state::proposal::get_proposal_address;
     use super::*;
-    use spl_governance as realms_sdk;
     use solana_client::rpc_client::RpcClient;
     use solana_program::account_info::IntoAccountInfo;
 
@@ -136,7 +136,7 @@ mod test {
     fn get_tulip_council_mint() -> Pubkey {
         Pubkey::from_str("EzSjCzCPwpchdQVaGJZYpgDNagzasKFVGJ66Dmut26FL").unwrap()
     }
-    fn get_tulip_main_governance_mint() -> Pubkey {
+    fn get_tulip_governance_account() -> Pubkey {
         spl_governance::state::governance::get_mint_governance_address(
             &GOVERNANCE_PROGRAM,
             &get_tulip_realm_account(),
@@ -154,12 +154,27 @@ mod test {
         let realm_account_info = realm_account_tup.into_account_info();
         let realm = get_realm_wrapper(&realm_account_info).unwrap();
 
-        let main_gov_mint = get_tulip_main_governance_mint();
-        let main_gov_account = rpc.get_account(&main_gov_mint).unwrap();
-        let mut main_gov_account_tup = (main_gov_mint, main_gov_account);
+        let main_gov_key = get_tulip_governance_account();
+        let main_gov_account = rpc.get_account(&main_gov_key).unwrap();
+        let mut main_gov_account_tup = (main_gov_key, main_gov_account);
         let main_gov_info = main_gov_account_tup.into_account_info();
         let main_gov = get_governance_wrapper(&main_gov_info).unwrap();
+        let proposal_key = get_proposal_address(
+            &GOVERNANCE_PROGRAM,
+            &main_gov_key,
+            &get_tulip_council_mint(),
+            &(0_u64.to_le_bytes())
+        );
 
+
+        println!("realm_key {}", realm_key);
+        println!("main_gov_acct {}", main_gov_key);
+        println!("proposal_key {}", proposal_key);
+
+        let proposal_account = rpc.get_account(&proposal_key).unwrap();
+        let mut proposal_account_tup = (proposal_key, proposal_account);
+        let proposal_account_info = proposal_account_tup.into_account_info();
+        let proposal = get_proposal_wrapper(&proposal_account_info).unwrap();
 
         let mut opts = tulip_sled_util::config::DbOpts::default();
         opts.path = "realms_sdk.db".to_string();
@@ -168,6 +183,7 @@ mod test {
 
         db.insert_realm(realm).unwrap();
         db.insert_governance(main_gov).unwrap();
+        db.insert_proposal(proposal).unwrap();
 
         std::fs::remove_dir_all("realms_sdk.db").unwrap();
     }
