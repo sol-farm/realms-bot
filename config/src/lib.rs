@@ -2,23 +2,33 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use simplelog::*;
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::pubkey::Pubkey;
 
+use std::str::FromStr;
 use std::fs;
 use std::fs::File;
 /// main configuration object
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
     pub discord: Discord,
-    pub db_url: String,
+    pub db_opts: tulip_sled_util::config::DbOpts,
+    /// information for a particular realms configuration, only supporting mint based governance
+    pub realm_info: RealmsConfig,
     pub log_file: String,
     pub debug_log: bool,
     pub rpc_url: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct RealmsConfig {
+    pub realm_key: String,
+    pub council_mint_key: String,
+    pub community_mint_key: String,
+    pub governance_key: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Discord {
-    /// the main account functioning as the DAO
-    pub dao_account: String,
     /// the discord bot token
     pub bot_token: String,
     /// the channel to post messages too
@@ -55,6 +65,9 @@ impl Configuration {
     }
     pub fn rpc_client(&self) -> RpcClient {
         RpcClient::new(self.rpc_url.to_string())
+    }
+    pub fn fix(&mut self) {
+        self.realm_info.fix();
     }
     /// if file_log is true, log to both file and stdout
     /// otherwise just log to stdout
@@ -128,15 +141,41 @@ impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             discord: Discord {
-                dao_account: "413KSeuFUBSWDzfjU9BBqBAWYKmoR8mncrhV84WcGNAk".to_string(),
                 bot_token: "".to_string(),
                 worker_loop_frequency: 600,
                 status_channel: 0,
             },
-            db_url: "postgres://postgres:necc@postgres/kek".to_string(),
             log_file: "template.log".to_string(),
             debug_log: false,
             rpc_url: "https://solana-api.projectserum.com".to_string(),
+            db_opts: Default::default(),
+            realm_info: Default::default(),
+        }
+    }
+}
+
+
+impl RealmsConfig {
+    pub fn realm_key(&self) -> Pubkey {
+        Pubkey::from_str(&self.realm_key).unwrap()
+    }
+    pub fn council_mint_key(&self) -> Pubkey {
+        Pubkey::from_str(&self.council_mint_key).unwrap()
+    }
+    pub fn community_mint_key(&self) -> Pubkey {
+        Pubkey::from_str(&self.community_mint_key).unwrap()
+    }
+    pub fn governance_key(&self) -> Pubkey {
+        Pubkey::from_str(&self.governance_key).unwrap()
+    }
+    // attempts to "fix" the configuration by populating the governance address
+    pub fn fix(&mut self) {
+        if !self.realm_key.is_empty() && !self.council_mint_key.is_empty() {
+            self.governance_key = tulip_realms_sdk::spl_governance::state::governance::get_mint_governance_address(
+                &tulip_realms_sdk::GOVERNANCE_PROGRAM,
+                &self.realm_key(),
+                &self.council_mint_key()
+            ).to_string();
         }
     }
 }

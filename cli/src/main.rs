@@ -27,6 +27,8 @@ async fn main() -> Result<()> {
                         .about("generates a new and empty configuration file"),
                     SubCommand::with_name("export-as-json")
                         .about("exports the yaml config file into a json file"),
+                    SubCommand::with_name("fix")
+                    .about("fix bad or missing configurations")
                 ]),
         )
         .get_matches();
@@ -53,6 +55,7 @@ async fn process_matches<'a>(
             ("export-as-json", Some(export_as_json)) => {
                 config::export_as_json(export_as_json, config_file_path)
             }
+            ("fix", Some(_)) => config::fix(config_file_path),
             _ => invalid_subcommand("config"),
         },
         _ => invalid_command(),

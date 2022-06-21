@@ -498,6 +498,8 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "thiserror",
+ "tulip-realms-sdk",
+ "tulip-sled-util",
 ]
 
 [[package]]
@@ -841,6 +843,7 @@ dependencies = [
  "spl-token",
  "static-pubkey",
  "tokio",
+ "tulip-realms-sdk",
  "tulip-sled-util",
 ]
 

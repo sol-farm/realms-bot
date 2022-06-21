@@ -27,4 +27,4 @@ build-cli:
 
 .PHONY: build-cli-debug
 build-cli-debug:
-	(cargo build ; cp target/debug/cli template-cli)
+	(cargo build ; cp target/debug/cli realms-bot)

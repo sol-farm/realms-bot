@@ -15,3 +15,10 @@ pub fn export_as_json(_matches: &clap::ArgMatches, config_file_path: String) -> 
     config.save(name.as_str(), true)?;
     Ok(())
 }
+
+pub fn fix(config_file_path: String) -> Result<()> {
+    let mut config = Configuration::load(config_file_path.as_str(), false)?;
+    config.fix();
+    config.save(&config_file_path, false)?;
+    Ok(())
+}

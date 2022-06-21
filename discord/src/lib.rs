@@ -10,7 +10,8 @@
 //! ```
 
 
-
+use chrono::prelude::*;
+use serenity::builder::CreateMessage;
 use serenity::prelude::*;
 
 use std::sync::atomic::AtomicBool;
@@ -35,8 +36,9 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
+#[derive(Clone)]
 struct Handler {
-    is_loop_running: AtomicBool,
+    is_loop_running: Arc<AtomicBool>,
     config: Arc<Configuration>,
     exit_chan: crossbeam_channel::Receiver<bool>,
 }
@@ -58,9 +60,22 @@ impl Handler {
             let sleep_time = self.config.discord.worker_loop_frequency;
             let exit_chan = self.exit_chan.clone();
             let config = self.config.clone();
-            let _rpc_client = Arc::new(self.config.rpc_client());
-
+            let rpc_client = Arc::new(self.config.rpc_client());
+            let handler = Arc::new(self.clone());
+            let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
+            db.populate_database_with_mint_governance(
+                config.realm_info.realm_key(),
+                config.realm_info.council_mint_key(),
+                config.realm_info.community_mint_key(),
+                Utc::now(),
+                &rpc_client,
+            ).unwrap();
             tokio::task::spawn(async move {
+
+                let do_fn = |m: &mut CreateMessage| {
+
+                };
+
                 loop {
                     select! {
                         recv(exit_chan) -> _msg => {
@@ -70,6 +85,7 @@ impl Handler {
                         default() => {
                             // check various matrics
                             if let Err(err) = ChannelId(config.discord.status_channel).send_message(&_ctx, |m | {
+                                do_fn(m);
                                 m.add_embed(|e| {
                                     e.title("🧑‍🌾 Farmer's Almanac - Automated Check In 🧑‍🌾");
                                     e.color((6, 72, 82));
@@ -151,7 +167,7 @@ pub async fn start_discord_bot(
     // initialize the framework, and event handler
     let mut client = Client::builder(&config.discord.bot_token, intents)
         .event_handler(Handler {
-            is_loop_running: AtomicBool::new(false),
+            is_loop_running: Arc::new(AtomicBool::new(false)),
             config: Arc::clone(config),
             exit_chan: subscriber,
         })

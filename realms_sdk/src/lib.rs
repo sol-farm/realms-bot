@@ -29,6 +29,8 @@ pub const REALM_TREE: &str = "realm_info";
 pub const GOVERNANCE_PROGRAM: Pubkey =
     static_pubkey!("GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw");
 
+pub use spl_governance;
+
 /// Database is the main embedded database object using sled db
 #[derive(Clone)]
 pub struct Database {
