@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use borsh::{BorshSerialize, BorshDeserialize, BorshSchema};
+use sled::IVec;
 use solana_program::account_info::AccountInfo;
 use spl_governance::{state::{governance::GovernanceV2, proposal::ProposalV2, realm::RealmV2}, solana_program::pubkey::Pubkey};
 use static_pubkey::static_pubkey;
@@ -20,8 +21,6 @@ pub struct Database {
 }
 
 
-
-
 impl Database {
     pub fn new(opts: tulip_sled_util::config::DbOpts) -> Result<Arc<Self>> {
         Ok(Arc::new(Self{db: tulip_sled_util::Database::new(&opts)?}))
@@ -37,6 +36,44 @@ impl Database {
     pub fn insert_realm(&self, realm: RealmV2Wrapper) -> Result<()> {
         self.db.open_tree(DbTrees::Custom(REALM_TREE))?.insert(&realm)?;
         Ok(())
+    }
+    pub fn list_governances(&self) -> Result<Vec<GovernanceV2Wrapper>> {
+        let tree = self.db.open_tree(DbTrees::Custom(GOVERNANCE_TREE))?;
+        let keys: Vec<IVec> = tree.iter().filter_map(|entry| {
+            if let Ok((key, _)) = entry {
+                Some(key)
+            } else {
+                None
+            }
+        }).collect();
+        let govs = keys.iter().filter_map(|key| {
+            let governance: GovernanceV2Wrapper = if let Ok(gov) = tree.deserialize(key) {
+                gov
+            } else {
+                return None;
+            };
+            Some(governance)
+        }).collect();
+        Ok(govs)
+    }
+    pub fn list_proposals(&self) -> Result<Vec<ProposalV2Wrapper>> {
+        let tree = self.db.open_tree(DbTrees::Custom(PROPOSAL_TREE))?;
+        let keys: Vec<IVec> = tree.iter().filter_map(|entry| {
+            if let Ok((key, _)) = entry {
+                Some(key)
+            } else {
+                None
+            }
+        }).collect();
+        let govs = keys.iter().filter_map(|key| {
+            let proposal: ProposalV2Wrapper = if let Ok(gov) = tree.deserialize(key) {
+                gov
+            } else {
+                return None;
+            };
+            Some(proposal)
+        }).collect();
+        Ok(govs)
     }
 }
 
@@ -175,22 +212,29 @@ mod test {
         let mut main_gov_account_tup = (main_gov_key, main_gov_account);
         let main_gov_info = main_gov_account_tup.into_account_info();
         let main_gov = get_governance_wrapper(&main_gov_info).unwrap();
-        let proposal_key = get_proposal_address(
+
+        let proposal1_key = get_proposal_address(
             &GOVERNANCE_PROGRAM,
             &main_gov_key,
             &get_tulip_community_mint(),
             &(0_u32.to_le_bytes())
         );
+        let proposal1_account = rpc.get_account(&proposal1_key).unwrap();
+        let mut proposal1_account_tup = (proposal1_key, proposal1_account);
+        let proposal1_account_info = proposal1_account_tup.into_account_info();
+        let proposal1 = get_proposal_wrapper(&proposal1_account_info).unwrap();
 
+        let proposal2_key = get_proposal_address(
+            &GOVERNANCE_PROGRAM,
+            &main_gov_key,
+            &get_tulip_community_mint(),
+            &(1_u32.to_le_bytes())
+        );
+        let proposal2_account = rpc.get_account(&proposal2_key).unwrap();
+        let mut proposal2_account_tup = (proposal2_key, proposal2_account);
+        let proposal2_account_info = proposal2_account_tup.into_account_info();
+        let proposal2 = get_proposal_wrapper(&proposal2_account_info).unwrap();
 
-        println!("realm_key {}", realm_key);
-        println!("main_gov_acct {}", main_gov_key);
-        println!("proposal_key {}", proposal_key);
-
-        let proposal_account = rpc.get_account(&proposal_key).unwrap();
-        let mut proposal_account_tup = (proposal_key, proposal_account);
-        let proposal_account_info = proposal_account_tup.into_account_info();
-        let proposal = get_proposal_wrapper(&proposal_account_info).unwrap();
 
         let mut opts = tulip_sled_util::config::DbOpts::default();
         opts.path = "realms_sdk.db".to_string();
@@ -199,7 +243,13 @@ mod test {
 
         db.insert_realm(realm).unwrap();
         db.insert_governance(main_gov).unwrap();
-        db.insert_proposal(proposal).unwrap();
+        db.insert_proposal(proposal1).unwrap();
+        db.insert_proposal(proposal2).unwrap();
+
+        let proposals = db.list_proposals().unwrap();
+        assert_eq!(proposals.len(), 2);
+
+
 
         std::fs::remove_dir_all("realms_sdk.db").unwrap();
     }

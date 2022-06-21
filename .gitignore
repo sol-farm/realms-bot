@@ -2,3 +2,5 @@ target/
 ssh
 .ssh
 template-cli
+
+discord/realms_sdk.db/
