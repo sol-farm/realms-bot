@@ -1,4 +1,4 @@
-use anyhow::{Result};
+use anyhow::Result;
 use config::Configuration;
 
 pub fn new_config(_matches: &clap::ArgMatches, config_file_path: String) -> Result<()> {

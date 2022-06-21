@@ -1,0 +1,25 @@
+[package]
+name = "discord"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+separator = "0.3.1"
+serenity = {version = "0.11.2", features = [ "utils"]}
+config = { path = "../config" }
+tokio = { version = "1.14.0", features = ["rt-multi-thread","full"] }
+log = "0.4.14"
+anyhow = "1.0.42"
+crossbeam = "0.8"
+crossbeam-utils = "0.8"
+crossbeam-channel = "0.5"
+num-format = "0.4.0"
+spl-token = "3.2.0"
+chrono = "0.4.19"
+channels = {path = "../channels" }
+sled = "0.34.7"
+realms_sdk = {path = "../realms_sdk"}
+borsh = "0.9.1"
+solana-client = "1.10.26"

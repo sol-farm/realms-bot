@@ -1,7 +1,10 @@
 [workspace]
 members = [
     "cli",
+    "channels",
     "config",
+    "discord",
+    "realms_sdk"
 ]
 
 [profile.release]

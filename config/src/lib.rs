@@ -6,13 +6,27 @@ use solana_sdk::signature::{read_keypair_file, Keypair};
 use std::fs;
 use std::fs::File;
 /// main configuration object
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
-    pub key_path: String,
+    pub discord: Discord,
     pub db_url: String,
     pub log_file: String,
     pub debug_log: bool,
     pub rpc_url: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Discord {
+    /// the main account functioning as the DAO
+    pub dao_account: String,
+    /// the discord bot token
+    pub bot_token: String,
+    /// the channel to post messages too
+    pub status_channel: u64,
+    /// how often the workloop should run
+    /// which is responsible for things such as automated
+    /// check ins, etc..
+    pub worker_loop_frequency: u64,
 }
 
 impl Configuration {
@@ -40,9 +54,6 @@ impl Configuration {
     }
     pub fn rpc_client(&self) -> RpcClient {
         RpcClient::new(self.rpc_url.to_string())
-    }
-    pub fn payer(&self) -> Keypair {
-        read_keypair_file(self.key_path.clone()).expect("failed to read keypair file")
     }
     /// if file_log is true, log to both file and stdout
     /// otherwise just log to stdout
@@ -115,7 +126,12 @@ impl Configuration {
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
-            key_path: "~/.config/solana/id.json".to_string(),
+            discord: Discord {
+                dao_account: "413KSeuFUBSWDzfjU9BBqBAWYKmoR8mncrhV84WcGNAk".to_string(),
+                bot_token: "".to_string(),
+                worker_loop_frequency: 600,
+                status_channel: 0,
+            },
             db_url: "postgres://postgres:necc@postgres/kek".to_string(),
             log_file: "template.log".to_string(),
             debug_log: false,
