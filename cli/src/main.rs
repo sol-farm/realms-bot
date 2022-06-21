@@ -2,7 +2,7 @@
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, SubCommand};
-
+mod discord;
 mod config;
 
 #[tokio::main]
@@ -31,6 +31,9 @@ async fn main() -> Result<()> {
                     .about("fix bad or missing configurations")
                 ]),
         )
+        .subcommand(
+            SubCommand::with_name("discord").about("run the discord bot")
+        )
         .get_matches();
     let config_file_path = get_config_or_default(&matches);
     process_matches(&matches, config_file_path).await?;
@@ -58,6 +61,7 @@ async fn process_matches<'a>(
             ("fix", Some(_)) => config::fix(config_file_path),
             _ => invalid_subcommand("config"),
         },
+        ("discord", Some(discord_args)) => discord::start(discord_args, config_file_path).await,
         _ => invalid_command(),
     }
 }

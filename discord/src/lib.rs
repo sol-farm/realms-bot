@@ -9,10 +9,13 @@
 //! features = ["framework", "standard_framework"]
 //! ```
 
+#![feature(async_closure)]
 
 use chrono::prelude::*;
 use serenity::builder::CreateMessage;
 use serenity::prelude::*;
+use solana_program::account_info::IntoAccountInfo;
+use tulip_realms_sdk::GOVERNANCE_PROGRAM;
 
 use std::sync::atomic::AtomicBool;
 use std::{collections::HashSet, sync::Arc};
@@ -71,9 +74,87 @@ impl Handler {
                 &rpc_client,
             ).unwrap();
             tokio::task::spawn(async move {
+                let do_fn = async || {
+                    // check to see if we have any new proposals that were submitted
+                    match db.get_governance_notif_cache(config.realm_info.governance_key()) {
+                        Ok(mut notif_cache) => {
+                            // fetch the governance account
+                            let governance_account = {
+                                match rpc_client.get_account(&config.realm_info.governance_key()) {
+                                    Ok(account) => {
+                                        let mut account_tup = (config.realm_info.governance_key(), account);
+                                        let account_info = account_tup.into_account_info();
+                                        match tulip_realms_sdk::types::get_governance_wrapper(&account_info) {
+                                            Ok(gov_acct) => gov_acct,
+                                            Err(err) => {
+                                                log::error!("failed to get governance account {:#?}", err);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    Err(err) => {
+                                        log::error!("failed to get governance account {:#?}", err);
+                                        return;
+                                    }
+                                }
+                            };
+                            if governance_account.governance.proposals_count.gt(&notif_cache.last_proposals_count) {
+                                let mut new_proposals = Vec::with_capacity((governance_account.governance.proposals_count - notif_cache.last_proposals_count) as usize);
+                                for idx in notif_cache.last_proposals_count..governance_account.governance.proposals_count {
+                                    let proposal_key = spl_governance::state::proposal::get_proposal_address(
+                                        &GOVERNANCE_PROGRAM,
+                                        &config.realm_info.governance_key(),
+                                        &config.realm_info.community_mint_key(),
+                                        &idx.to_le_bytes()[..]
+                                    );
+                                    match rpc_client.get_account(&proposal_key) {
+                                        Ok(account) => {
+                                            let mut account_tup = (proposal_key, account);
+                                            let account_info = account_tup.into_account_info();
+                                            match tulip_realms_sdk::types::get_proposal_wrapper(&account_info) {
+                                                Ok(proposal) => {
+                                                    if let Err(err) = db.insert_proposal(&proposal) {
+                                                        log::error!("failed to insert new proposal {:#?}", err);
+                                                    }
+                                                    new_proposals.push(proposal);
+                                                }
+                                                Err(err) => {
+                                                    log::error!("failed to get proposal account {:#?}", err);
+                                                }
+                                            }
+                                        }
+                                        Err(err) => {
+                                            log::error!("failed to get proposal account {:#?}", err);
+                                            continue;
+                                        }
+                                    }
+                                }
+                                if let Err(err) = ChannelId(config.discord.status_channel).send_message(&_ctx, |m| {
+                                    m.add_embed(|e| {
+                                        e.title("New Proposals Detected");
+                                        for proposal in new_proposals.iter() {
+                                            e.field("proposal".to_string(), proposal.key.to_string(), false);
+                                        }
+                                        e
+                                    });
+                                    m
+                                }).await {
+                                    log::error!("failed to send message {:#?}", err);
+                                }
 
-                let do_fn = |m: &mut CreateMessage| {
-
+                                notif_cache.last_proposals_count = governance_account.governance.proposals_count;
+                                if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
+                                    log::error!("failed to update notification cache {:#?}", err);
+                                }
+                                if let Err(err) = db.insert_governance(&governance_account) {
+                                    log::error!("failed to update governance account {:#?}", err);
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("failed to retrieve notification cache {:#?}", err);
+                        }
+                    }
                 };
 
                 loop {
@@ -83,18 +164,7 @@ impl Handler {
                             return;
                         }
                         default() => {
-                            // check various matrics
-                            if let Err(err) = ChannelId(config.discord.status_channel).send_message(&_ctx, |m | {
-                                do_fn(m);
-                                m.add_embed(|e| {
-                                    e.title("🧑‍🌾 Farmer's Almanac - Automated Check In 🧑‍🌾");
-                                    e.color((6, 72, 82));
-                                    e
-                                });
-                                m
-                            }).await {
-                                error!("failed to send status update {:#?}", err);
-                            }
+                            do_fn().await;
                             std::thread::sleep(std::time::Duration::from_secs(sleep_time));
                         }
                     }

@@ -8,3 +8,5 @@ discord/realms_sdk.db/
 config.yaml
 
 realms-bot
+
+test_infos.db/
