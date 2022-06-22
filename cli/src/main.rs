@@ -28,7 +28,9 @@ async fn main() -> Result<()> {
                     SubCommand::with_name("export-as-json")
                         .about("exports the yaml config file into a json file"),
                     SubCommand::with_name("fix")
-                    .about("fix bad or missing configurations")
+                    .about("fix bad or missing configurations"),
+                    SubCommand::with_name("seed-database")
+                    .about("seeds the sled database with realm information")
                 ]),
         )
         .subcommand(
@@ -59,6 +61,7 @@ async fn process_matches<'a>(
                 config::export_as_json(export_as_json, config_file_path)
             }
             ("fix", Some(_)) => config::fix(config_file_path),
+            ("seed-database", Some(seed)) => config::seed_database(config_file_path),
             _ => invalid_subcommand("config"),
         },
         ("discord", Some(discord_args)) => discord::start(discord_args, config_file_path).await,

@@ -66,18 +66,13 @@ impl Handler {
             let rpc_client = Arc::new(self.config.rpc_client());
             let handler = Arc::new(self.clone());
             let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
-            db.populate_database_with_mint_governance(
-                config.realm_info.realm_key(),
-                config.realm_info.council_mint_key(),
-                config.realm_info.community_mint_key(),
-                Utc::now(),
-                &rpc_client,
-            ).unwrap();
             tokio::task::spawn(async move {
-                let mut msg_builder = MessageBuilder::new();
-                msg_builder.push("listening for new proposals");
-                if let Err(err) = ChannelId(config.discord.status_channel).say(&_ctx, msg_builder).await {
-                    log::error!("failed to send message {:#?}", err);
+                {
+                    let mut msg_builder = MessageBuilder::new();
+                    msg_builder.push("listening for new proposals");
+                    if let Err(err) = ChannelId(config.discord.status_channel).say(&_ctx, msg_builder).await {
+                        log::error!("failed to send message {:#?}", err);
+                    }
                 }
                 let do_fn = async || {
                     // check to see if we have any new proposals that were submitted
@@ -168,8 +163,8 @@ impl Handler {
                                                     if duration_diff.gt(&chrono::Duration::hours(6)) {
                                                         if let Some(ends_at) = proposal.vote_ends_at(&governance_account.governance.config) {
                                                             let time_until_end = ends_at.signed_duration_since(now);
-                                                            let msg = MessageBuilder::new();
-                                                            msg.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
+                                                            let mut msg_builder = MessageBuilder::new();
+                                                            msg_builder.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
                                                             if let Err(err) = ChannelId(config.discord.status_channel).say(&_ctx, msg_builder).await {
                                                                 log::error!("failed to notify proposal {}: {:#?}", proposal_key, err);
                                                             } else {
