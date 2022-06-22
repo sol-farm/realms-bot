@@ -65,6 +65,9 @@ impl Database {
         self.db.open_tree(DbTrees::Default)?.insert(cache_entry)?;
         Ok(())
     }
+    pub fn get_proposal(&self, key: Pubkey) -> Result<ProposalV2Wrapper> {
+        Ok(self.db.open_tree(DbTrees::Custom(PROPOSAL_TREE))?.deserialize(key)?)
+    }
     pub fn get_governance_notif_cache(&self, governance_key: Pubkey) -> Result<NotifCacheEntry> {
         let notif_cache = self
             .db

@@ -16,7 +16,7 @@ use serenity::builder::CreateMessage;
 use serenity::prelude::*;
 use solana_program::account_info::IntoAccountInfo;
 use tulip_realms_sdk::GOVERNANCE_PROGRAM;
-
+use serenity::utils::MessageBuilder;
 use std::sync::atomic::AtomicBool;
 use std::{collections::HashSet, sync::Arc};
 
@@ -74,6 +74,11 @@ impl Handler {
                 &rpc_client,
             ).unwrap();
             tokio::task::spawn(async move {
+                let mut msg_builder = MessageBuilder::new();
+                msg_builder.push("listening for new proposals");
+                if let Err(err) = ChannelId(config.discord.status_channel).say(&_ctx, msg_builder).await {
+                    log::error!("failed to send message {:#?}", err);
+                }
                 let do_fn = async || {
                     // check to see if we have any new proposals that were submitted
                     match db.get_governance_notif_cache(config.realm_info.governance_key()) {
@@ -148,6 +153,37 @@ impl Handler {
                                 }
                                 if let Err(err) = db.insert_governance(&governance_account) {
                                     log::error!("failed to update governance account {:#?}", err);
+                                }
+                                let mut finished_proposals = Vec::with_capacity(notif_cache.voting_proposals_last_notification_time.len());
+                                for (proposal_key, last_notif_time) in notif_cache.voting_proposals_last_notification_time.iter_mut() {
+                                    let now = Utc::now();
+                                    let last_notif_ts = tulip_realms_sdk::utils::date_time_from_timestamp(*last_notif_time);
+                                    match db.get_proposal(*proposal_key) {
+                                        Ok(proposal) => {
+                                            if proposal.has_vote_time_ended(&governance_account.governance.config, now) {
+                                                finished_proposals.push(*proposal_key);
+                                            } else {
+                                                if now.gt(&last_notif_ts) {
+                                                    let duration_diff = now.signed_duration_since(last_notif_ts);
+                                                    if duration_diff.gt(&chrono::Duration::hours(6)) {
+                                                        if let Some(ends_at) = proposal.vote_ends_at(&governance_account.governance.config) {
+                                                            let time_until_end = ends_at.signed_duration_since(now);
+                                                            let msg = MessageBuilder::new();
+                                                            msg.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
+                                                            if let Err(err) = ChannelId(config.discord.status_channel).say(&_ctx, msg_builder).await {
+                                                                log::error!("failed to notify proposal {}: {:#?}", proposal_key, err);
+                                                            } else {
+                                                                *last_notif_time = now.timestamp();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Err(err) => {
+                                            log::error!("failed to get proposal for {}: {:#?}", err, proposal_key);
+                                        }
+                                    }
                                 }
                             }
                         }

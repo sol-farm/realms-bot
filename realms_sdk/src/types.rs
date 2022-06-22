@@ -135,8 +135,14 @@ impl ProposalV2Wrapper {
                 } else {
                     return;
                 }
-            } else {
             }
+        }
+    }
+    pub fn vote_ends_at(&self, governance_config: &GovernanceConfig) -> Option<DateTime<Utc>> {
+        if let Some(voting_at) = self.proposal.voting_at {
+            crate::utils::date_time_from_timestamp(voting_at).checked_add_signed(chrono::Duration::seconds(governance_config.max_voting_time as i64))
+        } else {
+            None
         }
     }
 }
