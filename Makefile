@@ -14,11 +14,10 @@ build-docker:
 		--memory 8g \
 		--cpu-shares 4096 \
 		--shm-size 8g \
-		-t template-cli:latest \
-		--ssh \
+		-t realms-bot:latest \
 		--squash .
-	docker image save template-cli:latest -o template_cli.tar
-	pigz -f -9 template_cli.tar
+	docker image save realms-bot:latest -o realms_bot.tar
+	pigz -f -9 realms_bot.tar
 
 
 .PHONY: build-cli
