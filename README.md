@@ -21,3 +21,7 @@ After running the following command the compiled  docker image will be saved to 
 ```shell
 $> make build-docker
 ```
+
+## `realms_sdk`
+
+The `realms_sdk` folder contains the source code for the `tulip-realms-sdk` crate, which is a wrapper around a sled embedded database, with support for storing realm, governance, and proposal accounts, as well as simple queries. For documentation on how to use this crate, see the tests, or the `discord` folder.
