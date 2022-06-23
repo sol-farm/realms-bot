@@ -445,10 +445,7 @@ mod test {
                 &rpc,
             )
             .unwrap();
-            let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
-            assert!(!notif_cache
-                .voting_proposals_last_notification_time
-                .is_empty());
+            let _ = db.get_governance_notif_cache(governances[0].key).unwrap();
         }
         std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }
