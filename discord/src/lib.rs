@@ -135,13 +135,6 @@ impl Handler {
                                                 &account_info,
                                             ) {
                                                 Ok(proposal) => {
-                                                    if let Err(err) = db.insert_proposal(&proposal)
-                                                    {
-                                                        log::error!(
-                                                            "failed to insert new proposal {:#?}",
-                                                            err
-                                                        );
-                                                    }
                                                     new_proposals.push(proposal);
                                                 }
                                                 Err(err) => {
@@ -176,7 +169,7 @@ impl Handler {
                                                     ),
                                                     false,
                                                 );
-                                                let mut proposal = proposal.proposal;
+                                                let mut proposal = proposal.proposal.clone();
                                                 // truncate description length if longer than 512 chars
                                                 proposal.description_link.truncate(
                                                     if proposal.description_link.chars().count()
@@ -200,6 +193,15 @@ impl Handler {
                                         .await
                                     {
                                         log::error!("failed to send message {:#?}", err);
+                                    } else {
+                                        // only insert proposal after a successful notification
+                                        if let Err(err) = db.insert_proposal(&proposal)
+                                        {
+                                            log::error!(
+                                                "failed to insert new proposal {:#?}",
+                                                err
+                                            );
+                                        }
                                     }
                                 }
 
