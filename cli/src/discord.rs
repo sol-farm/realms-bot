@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{error};
+use log::error;
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
     iterator::Signals,

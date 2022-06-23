@@ -465,6 +465,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "channels",
+ "chrono",
  "clap",
  "config",
  "discord",
@@ -474,6 +475,7 @@ dependencies = [
  "simplelog",
  "thiserror",
  "tokio",
+ "tulip-realms-sdk",
 ]
 
 [[package]]

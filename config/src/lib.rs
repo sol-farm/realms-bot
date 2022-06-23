@@ -4,9 +4,9 @@ use simplelog::*;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 
-use std::str::FromStr;
 use std::fs;
 use std::fs::File;
+use std::str::FromStr;
 /// main configuration object
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
@@ -154,7 +154,6 @@ impl Default for Configuration {
     }
 }
 
-
 impl RealmsConfig {
     pub fn realm_key(&self) -> Pubkey {
         Pubkey::from_str(&self.realm_key).unwrap()
@@ -171,11 +170,13 @@ impl RealmsConfig {
     // attempts to "fix" the configuration by populating the governance address
     pub fn fix(&mut self) {
         if !self.realm_key.is_empty() && !self.council_mint_key.is_empty() {
-            self.governance_key = tulip_realms_sdk::spl_governance::state::governance::get_mint_governance_address(
-                &tulip_realms_sdk::GOVERNANCE_PROGRAM,
-                &self.realm_key(),
-                &self.council_mint_key()
-            ).to_string();
+            self.governance_key =
+                tulip_realms_sdk::spl_governance::state::governance::get_mint_governance_address(
+                    &tulip_realms_sdk::GOVERNANCE_PROGRAM,
+                    &self.realm_key(),
+                    &self.council_mint_key(),
+                )
+                .to_string();
         }
     }
 }

@@ -2,8 +2,8 @@
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, SubCommand};
-mod discord;
 mod config;
+mod discord;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -27,15 +27,12 @@ async fn main() -> Result<()> {
                         .about("generates a new and empty configuration file"),
                     SubCommand::with_name("export-as-json")
                         .about("exports the yaml config file into a json file"),
-                    SubCommand::with_name("fix")
-                    .about("fix bad or missing configurations"),
+                    SubCommand::with_name("fix").about("fix bad or missing configurations"),
                     SubCommand::with_name("seed-database")
-                    .about("seeds the sled database with realm information")
+                        .about("seeds the sled database with realm information"),
                 ]),
         )
-        .subcommand(
-            SubCommand::with_name("discord").about("run the discord bot")
-        )
+        .subcommand(SubCommand::with_name("discord").about("run the discord bot"))
         .get_matches();
     let config_file_path = get_config_or_default(&matches);
     process_matches(&matches, config_file_path).await?;
@@ -61,7 +58,7 @@ async fn process_matches<'a>(
                 config::export_as_json(export_as_json, config_file_path)
             }
             ("fix", Some(_)) => config::fix(config_file_path),
-            ("seed-database", Some(seed)) => config::seed_database(config_file_path),
+            ("seed-database", Some(_)) => config::seed_database(config_file_path),
             _ => invalid_subcommand("config"),
         },
         ("discord", Some(discord_args)) => discord::start(discord_args, config_file_path).await,
