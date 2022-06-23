@@ -1,5 +1,6 @@
 FROM rust:1.60.0-slim-buster as BUILDER
 RUN apt-get update && apt-get install -y libudev-dev pkg-config build-essential  libssl-dev git
+RUN rustup install nightly
 RUN cargo install sccache
 ENV HOME=/home/root
 ENV SCCACHE_CACHE_SIZE="2G"

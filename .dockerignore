@@ -1,0 +1,20 @@
+target
+scripts
+
+# regexs
+**/*.anchor
+**/*.db
+**/*.txt
+**/yarn.lock
+**/*.sh
+**/LICENSE
+**/*.travis.yaml
+**/Anchor.toml
+**/*.md
+**/target
+**/*.html
+**/*.gz
+**/*.tar
+**/target
+**/*.db
+**/*.yaml

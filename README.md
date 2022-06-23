@@ -6,6 +6,8 @@ Discord bot for monitoring Realms DAO proposals, initially targetting Mint Gover
 
 ## No Docker
 
+> Requires nightly installation of rust
+
 ```shell
 $> make build-cli
 $> ./realms-bot config new
