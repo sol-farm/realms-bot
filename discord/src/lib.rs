@@ -195,57 +195,44 @@ impl Handler {
                                         log::error!("failed to send message {:#?}", err);
                                     } else {
                                         // only insert proposal after a successful notification
-                                        if let Err(err) = db.insert_proposal(proposal)
-                                        {
-                                            log::error!(
-                                                "failed to insert new proposal {:#?}",
-                                                err
-                                            );
+                                        if let Err(err) = db.insert_proposal(proposal) {
+                                            log::error!("failed to insert new proposal {:#?}", err);
                                         }
                                     }
                                 }
+                            }
+                            log::info!("notif cache\n{:#?}", notif_cache);
+                            let mut finished_proposals = Vec::with_capacity(
+                                notif_cache.voting_proposals_last_notification_time.len(),
+                            );
+                            for (proposal_key, last_notif_time) in notif_cache
+                                .voting_proposals_last_notification_time
+                                .iter_mut()
+                            {
+                                let now = Utc::now();
+                                let last_notif_ts =
+                                    tulip_realms_sdk::utils::date_time_from_timestamp(
+                                        *last_notif_time,
+                                    );
+                                match db.get_proposal(*proposal_key) {
+                                    Ok(proposal) => {
+                                        if !proposal.has_vote_time_ended(
+                                            &governance_account.governance.config,
+                                            now,
+                                        ) && now.gt(&last_notif_ts)
+                                        {
+                                            let duration_diff =
+                                                now.signed_duration_since(last_notif_ts);
+                                            if duration_diff.ge(&chrono::Duration::hours(
+                                                config.discord.notification_frequency,
+                                            )) {
+                                                if let Some(ends_at) = proposal.vote_ends_at(
+                                                    &governance_account.governance.config,
+                                                ) {
+                                                    let time_until_end =
+                                                        ends_at.signed_duration_since(now);
 
-                                notif_cache.last_proposals_count =
-                                    governance_account.governance.proposals_count;
-                                if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
-                                    log::error!("failed to update notification cache {:#?}", err);
-                                }
-                                if let Err(err) = db.insert_governance(&governance_account) {
-                                    log::error!("failed to update governance account {:#?}", err);
-                                }
-                                let mut finished_proposals = Vec::with_capacity(
-                                    notif_cache.voting_proposals_last_notification_time.len(),
-                                );
-                                log::info!("notif cache\n{:#?}", notif_cache);
-                                for (proposal_key, last_notif_time) in notif_cache
-                                    .voting_proposals_last_notification_time
-                                    .iter_mut()
-                                {
-                                    let now = Utc::now();
-                                    let last_notif_ts =
-                                        tulip_realms_sdk::utils::date_time_from_timestamp(
-                                            *last_notif_time,
-                                        );
-                                    match db.get_proposal(*proposal_key) {
-                                        Ok(proposal) => {
-                                            if proposal.has_vote_time_ended(
-                                                &governance_account.governance.config,
-                                                now,
-                                            ) {
-                                                finished_proposals.push(*proposal_key);
-                                            } else if now.gt(&last_notif_ts) {
-                                                let duration_diff =
-                                                    now.signed_duration_since(last_notif_ts);
-                                                if duration_diff.ge(&chrono::Duration::hours(
-                                                    config.discord.notification_frequency,
-                                                )) {
-                                                    if let Some(ends_at) = proposal.vote_ends_at(
-                                                        &governance_account.governance.config,
-                                                    ) {
-                                                        let time_until_end =
-                                                            ends_at.signed_duration_since(now);
-
-                                                        if let Err(err) = ChannelId(config.discord.status_channel)
+                                                    if let Err(err) = ChannelId(config.discord.status_channel)
                                                         .send_message(&_ctx, |m| {
                                                             m.add_embed(|e| {
                                                                 e.title("Proposal Voting Stats".to_string());
@@ -253,6 +240,23 @@ impl Handler {
                                                                 e.field(
                                                                     "proposal".to_string(), 
                                                                     format!("[{}]({}/proposal/{})", proposal.key, config.discord.ui_base_url, proposal.key),
+                                                                    false,
+                                                                );
+                                                                let mut proposal = proposal.proposal.clone();
+                                                                // truncate description length if longer than 512 chars
+                                                                proposal.description_link.truncate(
+                                                                    if proposal.description_link.chars().count()
+                                                                        > 512
+                                                                    {
+                                                                        512_usize
+                                                                    } else {
+                                                                        proposal.description_link.len()
+                                                                    },
+                                                                );
+                                                                e.field("name".to_string(), proposal.name, false);
+                                                                e.field(
+                                                                    "description",
+                                                                    proposal.description_link,
                                                                     false,
                                                                 );
                                                                 e.field(
@@ -267,20 +271,52 @@ impl Handler {
                                                         .await
                                                         {
                                                             log::error!("failed to send message {:#?}", err);
+                                                        } else {
+                                                            *last_notif_time = now.timestamp();
                                                         }
-                                                    }
                                                 }
                                             }
                                         }
-                                        Err(err) => {
-                                            log::error!(
-                                                "failed to get proposal for {}: {:#?}",
-                                                err,
-                                                proposal_key
-                                            );
+                                        if proposal.has_vote_time_ended(
+                                            &governance_account.governance.config,
+                                            now,
+                                        ) {
+                                            finished_proposals.push(proposal.key);
                                         }
                                     }
+                                    Err(err) => {
+                                        log::error!(
+                                            "failed to get proposal for {}: {:#?}",
+                                            err,
+                                            proposal_key
+                                        );
+                                    }
                                 }
+                            }
+                            notif_cache.last_proposals_count =
+                                governance_account.governance.proposals_count;
+                            // remove any proposals which finished
+                            for proposal in finished_proposals.iter() {
+                                for (idx, (key, _)) in notif_cache
+                                    .clone()
+                                    .voting_proposals_last_notification_time
+                                    .iter()
+                                    .enumerate()
+                                {
+                                    if proposal.eq(key) {
+                                        // remove this index
+                                        notif_cache
+                                            .voting_proposals_last_notification_time
+                                            .swap_remove(idx);
+                                        break;
+                                    }
+                                }
+                            }
+                            if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
+                                log::error!("failed to update notification cache {:#?}", err);
+                            }
+                            if let Err(err) = db.insert_governance(&governance_account) {
+                                log::error!("failed to update governance account {:#?}", err);
                             }
                         }
                         Err(err) => {

@@ -5,7 +5,7 @@ use crate::utils::governance_notif_cache_key;
 
 use super::*;
 
-#[derive(BorshSerialize, BorshDeserialize, BorshSchema, Debug)]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema, Debug, Clone)]
 pub struct NotifCacheEntry {
     pub governance_key: Pubkey,
     /// the total number of proposals tracked by the governance account the last time
