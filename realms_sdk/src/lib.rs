@@ -254,7 +254,7 @@ impl Database {
             if proposal.proposal.state.ne(&fresh_proposal.proposal.state) {
                 log::warn!("on-disk state for {} of {:#?} differs from onchain state of {:#?}, updating...", proposal.key, proposal.proposal.state, fresh_proposal.proposal.state);
                 proposal.proposal.state = fresh_proposal.proposal.state;
-                self.insert_proposal(&proposal).unwrap();
+                self.insert_proposal(proposal).unwrap();
             }
 
             let mut notif_cache_contains = false;
