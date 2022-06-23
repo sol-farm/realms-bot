@@ -192,6 +192,7 @@ impl Handler {
                                 let mut finished_proposals = Vec::with_capacity(
                                     notif_cache.voting_proposals_last_notification_time.len(),
                                 );
+                                log::info!("notif cache\n{:#?}", notif_cache);
                                 for (proposal_key, last_notif_time) in notif_cache
                                     .voting_proposals_last_notification_time
                                     .iter_mut()
