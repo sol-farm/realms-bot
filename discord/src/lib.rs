@@ -309,7 +309,9 @@ impl Handler {
                                         if proposal.has_vote_time_ended(
                                             &governance_account.governance.config,
                                             now,
-                                        ) || proposal.proposal.state.ne(&spl_governance::state::enums::ProposalState::Voting) {
+                                        ) || proposal.proposal.state.ne(
+                                            &spl_governance::state::enums::ProposalState::Voting,
+                                        ) {
                                             finished_proposals.push(proposal.key);
                                         }
                                     }
