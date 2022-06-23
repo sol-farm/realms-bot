@@ -163,9 +163,9 @@ impl Handler {
                                                     "proposal".to_string(),
                                                     format!(
                                                         "[{}]({}/proposal/{})",
-                                                        proposal.key.to_string(),
+                                                        proposal.key,
                                                         config.discord.ui_base_url,
-                                                        proposal.key.to_string()
+                                                        proposal.key
                                                     ),
                                                     false,
                                                 );
@@ -195,7 +195,7 @@ impl Handler {
                                         log::error!("failed to send message {:#?}", err);
                                     } else {
                                         // only insert proposal after a successful notification
-                                        if let Err(err) = db.insert_proposal(&proposal)
+                                        if let Err(err) = db.insert_proposal(proposal)
                                         {
                                             log::error!(
                                                 "failed to insert new proposal {:#?}",
@@ -248,11 +248,11 @@ impl Handler {
                                                         if let Err(err) = ChannelId(config.discord.status_channel)
                                                         .send_message(&_ctx, |m| {
                                                             m.add_embed(|e| {
-                                                                e.title(format!("Proposal Voting Stats"));
-                                                                e.description(format!("stats for proposals accepting votes"));
+                                                                e.title("Proposal Voting Stats".to_string());
+                                                                e.description("stats for proposals accepting votes".to_string());
                                                                 e.field(
                                                                     "proposal".to_string(), 
-                                                                    format!("[{}]({}/proposal/{})", proposal.key.to_string(), config.discord.ui_base_url, proposal.key.to_string()),
+                                                                    format!("[{}]({}/proposal/{})", proposal.key, config.discord.ui_base_url, proposal.key),
                                                                     false,
                                                                 );
                                                                 e.field(
