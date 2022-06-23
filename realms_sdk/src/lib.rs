@@ -66,8 +66,7 @@ impl Database {
         Ok(())
     }
     pub fn get_proposal(&self, key: Pubkey) -> Result<ProposalV2Wrapper> {
-        self
-            .db
+        self.db
             .open_tree(DbTrees::Custom(PROPOSAL_TREE))?
             .deserialize(key)
     }
@@ -342,6 +341,12 @@ mod test {
             proposals.len(),
             governances[0].governance.proposals_count as usize
         );
+        proposals.iter().for_each(|proposal| {
+            println!(
+                "---name({})\n\n{}---\n",
+                proposal.proposal.name, proposal.proposal.description_link
+            )
+        });
 
         let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
         assert_eq!(notif_cache.governance_key, governances[0].key);
@@ -349,7 +354,8 @@ mod test {
             notif_cache.last_proposals_count,
             governances[0].governance.proposals_count
         );
-        assert_eq!(notif_cache.voting_proposals_last_notification_time.len(), 0);
+        // this part of the test is flaky, because whenever this runs and fetches data, there may be active voting proposals
+        //assert_eq!(notif_cache.voting_proposals_last_notification_time.len(), 0);
 
         std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }
