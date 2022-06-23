@@ -75,7 +75,8 @@ impl Handler {
                 log::error!("failed to sync notification cache with proposal {:#?}", err);
             }
             tokio::task::spawn(async move {
-                {
+                // only send this if debug logs are enabled
+                if config.debug_log {
                     let mut msg_builder = MessageBuilder::new();
                     msg_builder.push("listening for new proposals");
                     if let Err(err) = ChannelId(config.discord.status_channel)
@@ -223,6 +224,43 @@ impl Handler {
                                     }
                                 }
                             }
+                        }
+                        Err(err) => {
+                            log::error!("failed to load notif cache {:#?}", err);
+                        }
+                    }
+                    if let Err(err) = db.db.flush() {
+                        log::error!("failed to flush database {:#?}", err);
+                    }
+                    // now handle existing proposal notification
+                    match db.get_governance_notif_cache(config.realm_info.governance_key()) {
+                        Ok(mut notif_cache) => {
+                            // fetch the governance account
+                            let governance_account = {
+                                match rpc_client.get_account(&config.realm_info.governance_key()) {
+                                    Ok(account) => {
+                                        let mut account_tup =
+                                            (config.realm_info.governance_key(), account);
+                                        let account_info = account_tup.into_account_info();
+                                        match tulip_realms_sdk::types::get_governance_wrapper(
+                                            &account_info,
+                                        ) {
+                                            Ok(gov_acct) => gov_acct,
+                                            Err(err) => {
+                                                log::error!(
+                                                    "failed to get governance account {:#?}",
+                                                    err
+                                                );
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    Err(err) => {
+                                        log::error!("failed to get governance account {:#?}", err);
+                                        return;
+                                    }
+                                }
+                            };
                             log::info!("notif cache\n{:#?}", notif_cache);
                             let mut finished_proposals = Vec::with_capacity(
                                 notif_cache.voting_proposals_last_notification_time.len(),
@@ -306,14 +344,25 @@ impl Handler {
                                             }
                                         }
                                         // mark a proposal as finished if vote time has ended **or** state is not voting
-                                        if proposal.has_vote_time_ended(
+                                        let inserted = if proposal.has_vote_time_ended(
                                             &governance_account.governance.config,
                                             now,
-                                        ) || proposal.proposal.state.ne(
+                                        ) {
+                                            finished_proposals.push(proposal.key);
+                                            true
+                                        } else {
+                                            false
+                                        };
+                                        if !inserted && proposal.proposal.state.ne(
                                             &spl_governance::state::enums::ProposalState::Voting,
                                         ) {
                                             finished_proposals.push(proposal.key);
                                         }
+                                        log::info!(
+                                            "proposal {}, state {:#?}",
+                                            proposal.key,
+                                            proposal.proposal.state
+                                        );
                                     }
                                     Err(err) => {
                                         log::error!(
@@ -326,8 +375,19 @@ impl Handler {
                             }
                             notif_cache.last_proposals_count =
                                 governance_account.governance.proposals_count;
+                            log::info!("checking for proposals to remove");
                             // remove any proposals which finished
                             for proposal in finished_proposals.iter() {
+                                log::info!("checking proposal {}", proposal);
+                                if let Ok(prop_info) = db.get_proposal(*proposal) {
+                                    log::info!(
+                                        "checking proposal {}, state {:#?}",
+                                        proposal,
+                                        prop_info.proposal.state
+                                    );
+                                } else {
+                                    continue;
+                                }
                                 for (idx, (key, _)) in notif_cache
                                     .clone()
                                     .voting_proposals_last_notification_time
@@ -335,6 +395,7 @@ impl Handler {
                                     .enumerate()
                                 {
                                     if proposal.eq(key) {
+                                        log::info!("removing proposal {}", proposal);
                                         // remove this index
                                         notif_cache
                                             .voting_proposals_last_notification_time
@@ -349,9 +410,13 @@ impl Handler {
                             if let Err(err) = db.insert_governance(&governance_account) {
                                 log::error!("failed to update governance account {:#?}", err);
                             }
+                            if let Err(err) = db.db.flush() {
+                                log::error!("failed to flush database {:#?}", err);
+                            }
                         }
+
                         Err(err) => {
-                            log::error!("failed to retrieve notification cache {:#?}", err);
+                            log::error!("failed to load notif cache {:#?}", err);
                         }
                     }
                 };

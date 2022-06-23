@@ -221,7 +221,10 @@ impl Database {
         Ok(())
     }
     /// used to check existing proposals, filter for actively voting ones,
-    /// and updating the notification cache if they are missing from the cahce
+    /// and updating the notification cache if they are missing from the cache
+    ///
+    /// additionally it performs a proposal state sync, ensuring that if a proposal has a state on-disk
+    /// which does match its on-chain state, that the on-disk state is updated to reflect the on-chain state
     pub fn sync_notif_cache_with_proposals(
         &self,
         realm_key: Pubkey,
@@ -244,6 +247,16 @@ impl Database {
         let mut proposals = self.list_proposals()?;
         // populate any actively voting proposals that are not in a draft state
         proposals.iter_mut().for_each(|proposal| {
+            let proposal_account = rpc.get_account(&proposal.key).unwrap();
+            let mut proposal_account_tup = (proposal.key, proposal_account);
+            let proposal_account_info = proposal_account_tup.into_account_info();
+            let fresh_proposal = get_proposal_wrapper(&proposal_account_info).unwrap();
+            if proposal.proposal.state.ne(&fresh_proposal.proposal.state) {
+                log::warn!("on-disk state for {} of {:#?} differs from onchain state of {:#?}, updating...", proposal.key, proposal.proposal.state, fresh_proposal.proposal.state);
+                proposal.proposal.state = fresh_proposal.proposal.state;
+                self.insert_proposal(&proposal).unwrap();
+            }
+
             let mut notif_cache_contains = false;
             notif_cache
                 .voting_proposals_last_notification_time
@@ -294,7 +307,7 @@ impl Database {
         });
 
         self.insert_notif_cache_entry(&notif_cache)?;
-
+        self.db.flush()?;
         Ok(())
     }
 }
