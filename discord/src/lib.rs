@@ -211,7 +211,7 @@ impl Handler {
                                             } else if now.gt(&last_notif_ts) {
                                                 let duration_diff =
                                                     now.signed_duration_since(last_notif_ts);
-                                                if duration_diff.gt(&chrono::Duration::hours(config.discord.notification_frequency))
+                                                if duration_diff.ge(&chrono::Duration::hours(config.discord.notification_frequency))
                                                 {
                                                     if let Some(ends_at) = proposal
                                                         .vote_ends_at(
