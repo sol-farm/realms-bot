@@ -66,6 +66,14 @@ impl Handler {
             let rpc_client = Arc::new(self.config.rpc_client());
             //let handler = Arc::new(self.clone());
             let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
+            if let Err(err) = db.sync_notif_cache_with_proposals(
+                config.realm_info.realm_key(),
+                config.realm_info.council_mint_key(),
+                Utc::now(),
+                &rpc_client,
+            ) {
+                log::error!("failed to sync notification cache with proposal");
+            }
             tokio::task::spawn(async move {
                 {
                     let mut msg_builder = MessageBuilder::new();
@@ -194,6 +202,20 @@ impl Handler {
                                     {
                                         log::error!("failed to send message {:#?}", err);
                                     } else {
+                                        let mut contains_proposal = false;
+                                        notif_cache
+                                            .voting_proposals_last_notification_time
+                                            .iter()
+                                            .for_each(|(proposal_key, _)| {
+                                                if proposal_key.eq(&proposal.key) {
+                                                    contains_proposal = true;
+                                                }
+                                            });
+                                        if !contains_proposal {
+                                            notif_cache
+                                                .voting_proposals_last_notification_time
+                                                .push((proposal.key, 0));
+                                        }
                                         // only insert proposal after a successful notification
                                         if let Err(err) = db.insert_proposal(proposal) {
                                             log::error!("failed to insert new proposal {:#?}", err);

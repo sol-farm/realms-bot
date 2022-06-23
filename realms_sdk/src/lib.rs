@@ -220,6 +220,55 @@ impl Database {
 
         Ok(())
     }
+    /// used to check existing proposals, filter for actively voting ones,
+    /// and updating the notification cache if they are missing from the cahce
+    pub fn sync_notif_cache_with_proposals(
+        &self,
+        realm_key: Pubkey,
+        council_mint_key: Pubkey,
+        now: DateTime<Utc>,
+        rpc: &RpcClient,
+    ) -> Result<()> {
+        let mint_gov_key = spl_governance::state::governance::get_mint_governance_address(
+            &GOVERNANCE_PROGRAM,
+            &realm_key,
+            &council_mint_key,
+        );
+        let main_gov_account = rpc.get_account(&mint_gov_key).unwrap();
+        let mut main_gov_account_tup = (mint_gov_key, main_gov_account);
+        let main_gov_info = main_gov_account_tup.into_account_info();
+        let mint_gov = get_governance_wrapper(&main_gov_info).unwrap();
+        self.insert_governance(&mint_gov)?;
+        let mut notif_cache = self.get_governance_notif_cache(mint_gov_key)?;
+
+        let mut proposals = self.list_proposals()?;
+        proposals.iter_mut().for_each(|proposal| {
+            let mut notif_cache_contains = false;
+            notif_cache
+                .voting_proposals_last_notification_time
+                .iter()
+                .for_each(|(proposal_key, _)| {
+                    if proposal_key.eq(&proposal.key) {
+                        notif_cache_contains = true;
+                    }
+                });
+            // attempt to finalize vote if possible, as this may not always be done on-chain, even
+            // if a vote has ended. really the only time this will likely be done on-chain is for a vote that is
+            // completed
+            proposal.finalize_vote(&mint_gov.governance.config, now);
+            if !proposal.has_vote_time_ended(&mint_gov.governance.config, now)
+                && !notif_cache_contains
+            {
+                log::info!("updating notif cache with proposal {}", proposal.key);
+                notif_cache
+                    .voting_proposals_last_notification_time
+                    .push((proposal.key, 0));
+            }
+        });
+        self.insert_notif_cache_entry(&notif_cache)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -348,15 +397,26 @@ mod test {
             )
         });
 
-        let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
+        let mut notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
         assert_eq!(notif_cache.governance_key, governances[0].key);
         assert_eq!(
             notif_cache.last_proposals_count,
             governances[0].governance.proposals_count
         );
-        // this part of the test is flaky, because whenever this runs and fetches data, there may be active voting proposals
-        //assert_eq!(notif_cache.voting_proposals_last_notification_time.len(), 0);
-
+        // this part of the test is flaky, because whenever this runs and fetches data, there may or may not be active proposals
+        if notif_cache.voting_proposals_last_notification_time.len() > 0 {
+            notif_cache.voting_proposals_last_notification_time = vec![];
+            db.insert_notif_cache_entry(&notif_cache).unwrap();
+            db.sync_notif_cache_with_proposals(
+                get_tulip_realm_account(),
+                get_tulip_council_mint(),
+                Utc::now(),
+                &rpc,
+            )
+            .unwrap();
+            let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
+            assert!(notif_cache.voting_proposals_last_notification_time.len() > 0);
+        }
         std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }
 }
