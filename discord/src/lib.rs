@@ -161,24 +161,44 @@ impl Handler {
                                         }
                                     }
                                 }
-                                if let Err(err) = ChannelId(config.discord.status_channel)
-                                    .send_message(&_ctx, |m| {
-                                        m.add_embed(|e| {
-                                            e.title("New Proposal(s) Detected");
-                                            for proposal in new_proposals.iter() {
+                                for proposal in new_proposals.iter() {
+                                    if let Err(err) = ChannelId(config.discord.status_channel)
+                                        .send_message(&_ctx, |m| {
+                                            m.add_embed(|e| {
+                                                e.title("New Proposal Detected");
                                                 e.field(
                                                     "proposal".to_string(),
-                                                    format!("[{}]({}/proposal/{})", proposal.key.to_string(), config.discord.ui_base_url, proposal.key.to_string()),
+                                                    format!(
+                                                        "[{}]({}/proposal/{})",
+                                                        proposal.key.to_string(),
+                                                        config.discord.ui_base_url,
+                                                        proposal.key.to_string()
+                                                    ),
                                                     false,
                                                 );
-                                            }
-                                            e
-                                        });
-                                        m
-                                    })
-                                    .await
-                                {
-                                    log::error!("failed to send message {:#?}", err);
+                                                let mut proposal = proposal.proposal;
+                                                // truncate description length if longer than 512 chars
+                                                proposal.description_link.truncate(
+                                                    if proposal.description_link.chars().count() > 512 {
+                                                        512_usize
+                                                    } else {
+                                                        proposal.description_link.len()
+                                                    },
+                                                );
+                                                e.field("name".to_string(), proposal.name, false);
+                                                e.field(
+                                                    "description",
+                                                    proposal.description_link,
+                                                    false,
+                                                );
+                                                e
+                                            });
+                                            m
+                                        })
+                                        .await
+                                    {
+                                        log::error!("failed to send message {:#?}", err);
+                                    }
                                 }
 
                                 notif_cache.last_proposals_count =
@@ -212,15 +232,12 @@ impl Handler {
                                             } else if now.gt(&last_notif_ts) {
                                                 let duration_diff =
                                                     now.signed_duration_since(last_notif_ts);
-                                                if duration_diff.ge(&chrono::Duration::hours(config.discord.notification_frequency))
-                                                {
-                                                    if let Some(ends_at) = proposal
-                                                        .vote_ends_at(
-                                                            &governance_account
-                                                                .governance
-                                                                .config,
-                                                        )
-                                                    {
+                                                if duration_diff.ge(&chrono::Duration::hours(
+                                                    config.discord.notification_frequency,
+                                                )) {
+                                                    if let Some(ends_at) = proposal.vote_ends_at(
+                                                        &governance_account.governance.config,
+                                                    ) {
                                                         let time_until_end =
                                                             ends_at.signed_duration_since(now);
 
