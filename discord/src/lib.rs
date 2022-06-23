@@ -12,7 +12,7 @@
 #![feature(async_closure)]
 
 use chrono::prelude::*;
-use serenity::builder::CreateMessage;
+
 use serenity::prelude::*;
 use serenity::utils::MessageBuilder;
 use solana_program::account_info::IntoAccountInfo;
@@ -208,34 +208,32 @@ impl Handler {
                                                 now,
                                             ) {
                                                 finished_proposals.push(*proposal_key);
-                                            } else {
-                                                if now.gt(&last_notif_ts) {
-                                                    let duration_diff =
-                                                        now.signed_duration_since(last_notif_ts);
-                                                    if duration_diff.gt(&chrono::Duration::hours(6))
+                                            } else if now.gt(&last_notif_ts) {
+                                                let duration_diff =
+                                                    now.signed_duration_since(last_notif_ts);
+                                                if duration_diff.gt(&chrono::Duration::hours(6))
+                                                {
+                                                    if let Some(ends_at) = proposal
+                                                        .vote_ends_at(
+                                                            &governance_account
+                                                                .governance
+                                                                .config,
+                                                        )
                                                     {
-                                                        if let Some(ends_at) = proposal
-                                                            .vote_ends_at(
-                                                                &governance_account
-                                                                    .governance
-                                                                    .config,
-                                                            )
+                                                        let time_until_end =
+                                                            ends_at.signed_duration_since(now);
+                                                        let mut msg_builder =
+                                                            MessageBuilder::new();
+                                                        msg_builder.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
+                                                        if let Err(err) = ChannelId(
+                                                            config.discord.status_channel,
+                                                        )
+                                                        .say(&_ctx, msg_builder)
+                                                        .await
                                                         {
-                                                            let time_until_end =
-                                                                ends_at.signed_duration_since(now);
-                                                            let mut msg_builder =
-                                                                MessageBuilder::new();
-                                                            msg_builder.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
-                                                            if let Err(err) = ChannelId(
-                                                                config.discord.status_channel,
-                                                            )
-                                                            .say(&_ctx, msg_builder)
-                                                            .await
-                                                            {
-                                                                log::error!("failed to notify proposal {}: {:#?}", proposal_key, err);
-                                                            } else {
-                                                                *last_notif_time = now.timestamp();
-                                                            }
+                                                            log::error!("failed to notify proposal {}: {:#?}", proposal_key, err);
+                                                        } else {
+                                                            *last_notif_time = now.timestamp();
                                                         }
                                                     }
                                                 }
