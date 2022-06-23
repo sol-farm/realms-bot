@@ -179,7 +179,9 @@ impl Handler {
                                                 let mut proposal = proposal.proposal;
                                                 // truncate description length if longer than 512 chars
                                                 proposal.description_link.truncate(
-                                                    if proposal.description_link.chars().count() > 512 {
+                                                    if proposal.description_link.chars().count()
+                                                        > 512
+                                                    {
                                                         512_usize
                                                     } else {
                                                         proposal.description_link.len()
