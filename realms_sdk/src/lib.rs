@@ -270,6 +270,29 @@ impl Database {
                     .push((proposal.key, 0));
             }
         });
+
+        // clear out any proposals from the notification cache that aren't actively voting
+        proposals.iter().for_each(|proposal| {
+            for (idx, (key, _)) in notif_cache
+                .clone()
+                .voting_proposals_last_notification_time
+                .iter()
+                .enumerate()
+            {
+                if proposal
+                    .proposal
+                    .state
+                    .ne(&spl_governance::state::enums::ProposalState::Voting)
+                    && proposal.key.eq(key)
+                {
+                    log::warn!("removing non voting proposal {} from notif cache", key);
+                    notif_cache
+                        .voting_proposals_last_notification_time
+                        .swap_remove(idx);
+                }
+            }
+        });
+
         self.insert_notif_cache_entry(&notif_cache)?;
 
         Ok(())
