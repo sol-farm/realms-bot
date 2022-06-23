@@ -242,6 +242,7 @@ impl Database {
         let mut notif_cache = self.get_governance_notif_cache(mint_gov_key)?;
 
         let mut proposals = self.list_proposals()?;
+        // populate any actively voting proposals that are not in a draft state
         proposals.iter_mut().for_each(|proposal| {
             let mut notif_cache_contains = false;
             notif_cache
@@ -258,6 +259,10 @@ impl Database {
             proposal.finalize_vote(&mint_gov.governance.config, now);
             if !proposal.has_vote_time_ended(&mint_gov.governance.config, now)
                 && !notif_cache_contains
+                && !proposal
+                    .proposal
+                    .state
+                    .eq(&spl_governance::state::enums::ProposalState::Draft)
             {
                 log::info!("updating notif cache with proposal {}", proposal.key);
                 notif_cache
@@ -404,7 +409,10 @@ mod test {
             governances[0].governance.proposals_count
         );
         // this part of the test is flaky, because whenever this runs and fetches data, there may or may not be active proposals
-        if !notif_cache.voting_proposals_last_notification_time.is_empty() {
+        if !notif_cache
+            .voting_proposals_last_notification_time
+            .is_empty()
+        {
             notif_cache.voting_proposals_last_notification_time = vec![];
             db.insert_notif_cache_entry(&notif_cache).unwrap();
             db.sync_notif_cache_with_proposals(
@@ -415,7 +423,9 @@ mod test {
             )
             .unwrap();
             let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
-            assert!(!notif_cache.voting_proposals_last_notification_time.is_empty());
+            assert!(!notif_cache
+                .voting_proposals_last_notification_time
+                .is_empty());
         }
         std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }
