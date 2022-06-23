@@ -305,10 +305,11 @@ impl Handler {
                                                 }
                                             }
                                         }
+                                        // mark a proposal as finished if vote time has ended **or** state is not voting
                                         if proposal.has_vote_time_ended(
                                             &governance_account.governance.config,
                                             now,
-                                        ) {
+                                        ) || proposal.proposal.state.ne(&spl_governance::state::enums::ProposalState::Voting) {
                                             finished_proposals.push(proposal.key);
                                         }
                                     }
