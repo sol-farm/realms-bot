@@ -34,9 +34,11 @@ impl Database {
                 }
                 if let Some(governance_wrapper) = governance_wrapper.as_ref() {
                     //return !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now);
-                    !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now) && proposal.proposal.state.eq(
-                        &spl_governance::state::enums::ProposalState::Voting
-                    )
+                    !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now)
+                        && proposal
+                            .proposal
+                            .state
+                            .eq(&spl_governance::state::enums::ProposalState::Voting)
                 } else {
                     log::warn!("governance wrapper is None");
                     false
