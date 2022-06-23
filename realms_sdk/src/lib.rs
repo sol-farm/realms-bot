@@ -404,7 +404,7 @@ mod test {
             governances[0].governance.proposals_count
         );
         // this part of the test is flaky, because whenever this runs and fetches data, there may or may not be active proposals
-        if notif_cache.voting_proposals_last_notification_time.len() > 0 {
+        if !notif_cache.voting_proposals_last_notification_time.is_empty() {
             notif_cache.voting_proposals_last_notification_time = vec![];
             db.insert_notif_cache_entry(&notif_cache).unwrap();
             db.sync_notif_cache_with_proposals(
@@ -415,7 +415,7 @@ mod test {
             )
             .unwrap();
             let notif_cache = db.get_governance_notif_cache(governances[0].key).unwrap();
-            assert!(notif_cache.voting_proposals_last_notification_time.len() > 0);
+            assert!(!notif_cache.voting_proposals_last_notification_time.is_empty());
         }
         std::fs::remove_dir_all("realms_sdk_populate_mint.db").unwrap();
     }

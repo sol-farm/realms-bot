@@ -72,7 +72,7 @@ impl Handler {
                 Utc::now(),
                 &rpc_client,
             ) {
-                log::error!("failed to sync notification cache with proposal");
+                log::error!("failed to sync notification cache with proposal {:#?}", err);
             }
             tokio::task::spawn(async move {
                 {
