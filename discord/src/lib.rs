@@ -164,11 +164,11 @@ impl Handler {
                                 if let Err(err) = ChannelId(config.discord.status_channel)
                                     .send_message(&_ctx, |m| {
                                         m.add_embed(|e| {
-                                            e.title("New Proposals Detected");
+                                            e.title("New Proposal(s) Detected");
                                             for proposal in new_proposals.iter() {
                                                 e.field(
                                                     "proposal".to_string(),
-                                                    proposal.key.to_string(),
+                                                    format!("[{}]({}/proposal/{})", proposal.key.to_string(), config.discord.ui_base_url, proposal.key.to_string()),
                                                     false,
                                                 );
                                             }
@@ -222,18 +222,29 @@ impl Handler {
                                                     {
                                                         let time_until_end =
                                                             ends_at.signed_duration_since(now);
-                                                        let mut msg_builder =
-                                                            MessageBuilder::new();
-                                                        msg_builder.push(format!("voting for proposal {} ends in {} hours", proposal_key, time_until_end.num_hours()));
-                                                        if let Err(err) = ChannelId(
-                                                            config.discord.status_channel,
-                                                        )
-                                                        .say(&_ctx, msg_builder)
+
+                                                        if let Err(err) = ChannelId(config.discord.status_channel)
+                                                        .send_message(&_ctx, |m| {
+                                                            m.add_embed(|e| {
+                                                                e.title(format!("Proposal Voting Stats"));
+                                                                e.description(format!("stats for proposals accepting votes"));
+                                                                e.field(
+                                                                    "proposal".to_string(), 
+                                                                    format!("[{}]({}/proposal/{})", proposal.key.to_string(), config.discord.ui_base_url, proposal.key.to_string()),
+                                                                    false,
+                                                                );
+                                                                e.field(
+                                                                    "time left".to_string(),
+                                                                    format!("{} hours", time_until_end.num_hours()),
+                                                                     false,
+                                                                );
+                                                                e
+                                                            });
+                                                            m
+                                                        })
                                                         .await
                                                         {
-                                                            log::error!("failed to notify proposal {}: {:#?}", proposal_key, err);
-                                                        } else {
-                                                            *last_notif_time = now.timestamp();
+                                                            log::error!("failed to send message {:#?}", err);
                                                         }
                                                     }
                                                 }

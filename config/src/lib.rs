@@ -31,6 +31,9 @@ pub struct RealmsConfig {
 pub struct Discord {
     /// the discord bot token
     pub bot_token: String,
+    /// the base url for a realms ui, for example with the public website it would be
+    /// https://realms.today/dao
+    pub ui_base_url: String,
     /// the channel to post messages too
     pub status_channel: u64,
     /// how often the workloop should run
