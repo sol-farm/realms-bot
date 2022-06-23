@@ -277,13 +277,13 @@ impl Handler {
                                                                 );
                                                                 e.field("name".to_string(), proposal.name, false);
                                                                 let description = if proposal.description_link.eq_ignore_ascii_case("") {
-                                                                    "no description provided"
+                                                                    "no description provided".to_string()
                                                                 } else {
-                                                                    proposal.description_link.clone().as_str()
+                                                                    proposal.description_link.clone()
                                                                 };
                                                                 e.field(
                                                                     "description",
-                                                                    description,
+                                                                    description.as_str(),
                                                                     false,
                                                                 );
                                                                 e.field(
