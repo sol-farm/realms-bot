@@ -1,5 +1,8 @@
 use chrono::prelude::*;
+use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_filter::RpcFilterType;
 use solana_program::pubkey::Pubkey;
+use spl_governance::state::vote_record::VoteRecordV2;
 
 use crate::GOVERNANCE_TREE;
 use crate::{
@@ -54,11 +57,63 @@ pub fn governance_notif_cache_key(gov_key: Pubkey) -> String {
     format!("notif_cache_entry-{}", gov_key)
 }
 
+
+
+pub fn get_vote_records_for_proposal(
+    rpc: &RpcClient,
+    proposal: Pubkey,
+) -> Result<()> {
+    use crate::GOVERNANCE_PROGRAM;
+    use solana_client::rpc_config::RpcProgramAccountsConfig;
+    use solana_client::rpc_filter::Memcmp;
+    use solana_client::rpc_config::RpcAccountInfoConfig;
+    use solana_account_decoder::UiAccountEncoding;
+    match rpc.get_program_accounts_with_config(
+        &GOVERNANCE_PROGRAM,
+        RpcProgramAccountsConfig {
+            filters: Some(vec![
+                RpcFilterType::DataSize(std::mem::size_of::<spl_governance::state::vote_record::VoteRecordV2>() as u64),
+                RpcFilterType::Memcmp(Memcmp {
+                    // -1 because the account data buffer is an array
+                    offset: std::mem::size_of::<spl_governance::state::enums::GovernanceAccountType>() - 1,
+                    bytes: solana_client::rpc_filter::MemcmpEncodedBytes::Bytes(
+                        proposal.to_bytes().to_vec(),
+                    ),
+                    encoding: None,
+                }),
+            ]),
+            with_context: None,
+            account_config: RpcAccountInfoConfig {
+                min_context_slot: None,
+                encoding: Some(UiAccountEncoding::Base64),
+                data_slice: None,
+                commitment: None,
+            },
+        }
+    ) {
+        Ok(accounts) => {
+            println!("found {} vote records", accounts.len());
+        }
+        Err(err) => {
+            log::error!("failed to vote account records {:#?}", err);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::test::{get_tulip_community_mint, get_tulip_council_mint, get_tulip_realm_account};
     use solana_client::rpc_client::RpcClient;
+    use static_pubkey::static_pubkey;
+    #[tokio::test(flavor = "multi_thread")]
+
+    async fn test_get_vote_records_for_proposal() {
+        let proposal = static_pubkey!("9z4TmXcvSUksTB1LiUSHYFxoodH67Fi2Wt5riCo7i61U");
+        let rpc = RpcClient::new("http://51.222.241.93:8899".to_string());
+        get_vote_records_for_proposal(&rpc, proposal).unwrap();
+    }
     #[test]
     fn test_timestamp() {
         let now = Utc::now();
