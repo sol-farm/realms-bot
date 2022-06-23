@@ -24,7 +24,7 @@ pub fn fix(config_file_path: String) -> Result<()> {
 }
 
 pub fn seed_database(config_file_path: String) -> Result<()> {
-    let config = Configuration::new(config_file_path.as_str(), false)?;
+    let config = Configuration::load(config_file_path.as_str(), false)?;
     let rpc_client = config.rpc_client();
     let db = tulip_realms_sdk::Database::new(config.db_opts)?;
     db.populate_database_with_mint_governance(
