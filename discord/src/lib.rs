@@ -276,9 +276,14 @@ impl Handler {
                                                                     },
                                                                 );
                                                                 e.field("name".to_string(), proposal.name, false);
+                                                                let description = if proposal.description_link.eq_ignore_ascii_case("") {
+                                                                    "no description provided"
+                                                                } else {
+                                                                    proposal.description_link.clone().as_str()
+                                                                };
                                                                 e.field(
                                                                     "description",
-                                                                    proposal.description_link,
+                                                                    description,
                                                                     false,
                                                                 );
                                                                 e.field(
@@ -286,6 +291,7 @@ impl Handler {
                                                                     format!("{} hours", time_until_end.num_hours()),
                                                                      false,
                                                                 );
+                                                                log::info!("embed {:#?}", e);
                                                                 e
                                                             });
                                                             m
