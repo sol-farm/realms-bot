@@ -40,6 +40,8 @@ pub struct Discord {
     /// which is responsible for things such as automated
     /// check ins, etc..
     pub worker_loop_frequency: u64,
+    /// how often to notify about voting proposals in hours
+    pub notification_frequency: i64,
 }
 
 impl Configuration {
@@ -147,6 +149,8 @@ impl Default for Configuration {
                 bot_token: "".to_string(),
                 worker_loop_frequency: 600,
                 status_channel: 0,
+                ui_base_url: "".to_string(),
+                notification_frequency: 0,
             },
             log_file: "template.log".to_string(),
             debug_log: false,
