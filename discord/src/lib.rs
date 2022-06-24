@@ -224,6 +224,9 @@ impl Handler {
                                     }
                                 }
                             }
+                            if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
+                                log::error!("failed to insert notif cache {:#?}", err);
+                            }
                         }
                         Err(err) => {
                             log::error!("failed to load notif cache {:#?}", err);
