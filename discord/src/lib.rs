@@ -224,6 +224,15 @@ impl Handler {
                                     }
                                 }
                             }
+                            if let Err(err) = db.insert_governance(&governance_account) {
+                                log::error!("failed to isnert governance {:#?}", err);
+                            }
+                            // update the notif cache with the new proposal count
+                            notif_cache.last_proposals_count =
+                                governance_account.governance.proposals_count;
+                            if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
+                                log::error!("failed to insert notif cache {:#?}", err);
+                            }
                         }
                         Err(err) => {
                             log::error!("failed to load notif cache {:#?}", err);
@@ -373,8 +382,6 @@ impl Handler {
                                     }
                                 }
                             }
-                            notif_cache.last_proposals_count =
-                                governance_account.governance.proposals_count;
                             log::info!("checking for proposals to remove");
                             // remove any proposals which finished
                             for proposal in finished_proposals.iter() {
