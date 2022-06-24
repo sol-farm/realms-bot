@@ -18,6 +18,8 @@ $> ./realms-bot discord # starts the discord bot
 
 ## Docker
 
+> Requires a docker installation that supports docker buildkit
+
 After running the following command the compiled  docker image will be saved to `realms_bot.tar.gz`.
 
 ```shell

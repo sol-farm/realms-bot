@@ -31,12 +31,17 @@ pub struct RealmsConfig {
 pub struct Discord {
     /// the discord bot token
     pub bot_token: String,
+    /// the base url for a realms ui, for example with the public website it would be
+    /// https://realms.today/dao
+    pub ui_base_url: String,
     /// the channel to post messages too
     pub status_channel: u64,
     /// how often the workloop should run
     /// which is responsible for things such as automated
     /// check ins, etc..
     pub worker_loop_frequency: u64,
+    /// how often to notify about voting proposals in hours
+    pub notification_frequency: i64,
 }
 
 impl Configuration {
@@ -144,6 +149,8 @@ impl Default for Configuration {
                 bot_token: "".to_string(),
                 worker_loop_frequency: 600,
                 status_channel: 0,
+                ui_base_url: "".to_string(),
+                notification_frequency: 0,
             },
             log_file: "template.log".to_string(),
             debug_log: false,

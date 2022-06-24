@@ -11,9 +11,6 @@ build-docker:
 	DOCKER_BUILDKIT=1 docker \
 		build \
 		--compress \
-		--memory 8g \
-		--cpu-shares 4096 \
-		--shm-size 8g \
 		-t realms-bot:latest \
 		--squash .
 	docker image save realms-bot:latest -o realms_bot.tar
