@@ -206,6 +206,10 @@ impl Database {
             proposal.finalize_vote(&mint_gov.governance.config, now);
             if proposal.proposal.voting_at.is_some()
                 && !proposal.has_vote_time_ended(&mint_gov.governance.config, now)
+                && proposal
+                    .proposal
+                    .state
+                    .eq(&spl_governance::state::enums::ProposalState::Voting)
             {
                 notif_cache
                     .voting_proposals_last_notification_time

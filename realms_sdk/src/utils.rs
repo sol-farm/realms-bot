@@ -38,6 +38,10 @@ impl Database {
                 if let Some(governance_wrapper) = governance_wrapper.as_ref() {
                     //return !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now);
                     !proposal.has_vote_time_ended(&governance_wrapper.governance.config, now)
+                        && proposal
+                            .proposal
+                            .state
+                            .eq(&spl_governance::state::enums::ProposalState::Voting)
                 } else {
                     log::warn!("governance wrapper is None");
                     false
@@ -165,7 +169,7 @@ mod test {
 
         let now = now.checked_sub_signed(chrono::Duration::days(60)).unwrap();
         let voting_proposals = db.list_voting_proposals(now).unwrap();
-        assert_eq!(voting_proposals.len(), 6);
+        assert_eq!(voting_proposals.len(), 0);
 
         std::fs::remove_dir_all("realms_sdk_list_voting2.db").unwrap();
     }
