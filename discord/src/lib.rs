@@ -23,7 +23,7 @@ use tulip_realms_sdk::GOVERNANCE_PROGRAM;
 
 use anyhow::Result;
 use config::Configuration;
-use crossbeam_channel::{select, tick};
+use crossbeam_channel::select;
 use log::{error, info, warn};
 use serenity::model::id::GuildId;
 use serenity::{
@@ -249,7 +249,7 @@ impl Handler {
                                 Utc::now(),
                                 &rpc_client,
                             ) {
-                                log::error!("failed to sync disk backed cache");
+                                log::error!("failed to sync disk backed cache {:#?}", err);
                             }
                         }
                         Err(err) => {
