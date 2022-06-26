@@ -71,7 +71,7 @@ impl Handler {
                 Ok(voter_mint_acct) => {
                     spl_token::state::Mint::unpack_unchecked(&voter_mint_acct.data[..]).unwrap()
                 }
-                Err(err) => panic!("failed to load community mint {:#?}", err)
+                Err(err) => panic!("failed to load community mint {:#?}", err),
             };
             //let handler = Arc::new(self.clone());
             let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
@@ -242,7 +242,7 @@ impl Handler {
                             if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
                                 log::error!("failed to insert notif cache {:#?}", err);
                             }
-                            // now sync everything 
+                            // now sync everything
                             if let Err(err) = db.sync_notif_cache_with_proposals(
                                 config.realm_info.realm_key(),
                                 config.realm_info.council_mint_key(),
@@ -331,7 +331,11 @@ impl Handler {
                                                     let mut approval_votes = 0;
                                                     let mut deny_votes = 0;
                                                     // do not track relinquished votes
-                                                    for voter_record in voter_records.iter().filter(|vote_record| !vote_record.is_relinquished) {
+                                                    for voter_record in
+                                                        voter_records.iter().filter(|vote_record| {
+                                                            !vote_record.is_relinquished
+                                                        })
+                                                    {
                                                         match voter_record.vote {
                                                             spl_governance::state::vote_record::Vote::Approve(_) => {
                                                                 approval_votes += voter_record.voter_weight
@@ -342,8 +346,15 @@ impl Handler {
                                                             _ => log::warn!("unsupported vote type {:#?}", voter_record.vote)
                                                         }
                                                     }
-                                                    let approval_votes = spl_token::amount_to_ui_amount(approval_votes, voter_mint.decimals);
-                                                    let deny_votes = spl_token::amount_to_ui_amount(deny_votes, voter_mint.decimals);
+                                                    let approval_votes =
+                                                        spl_token::amount_to_ui_amount(
+                                                            approval_votes,
+                                                            voter_mint.decimals,
+                                                        );
+                                                    let deny_votes = spl_token::amount_to_ui_amount(
+                                                        deny_votes,
+                                                        voter_mint.decimals,
+                                                    );
                                                     if let Err(err) = ChannelId(config.discord.status_channel)
                                                         .send_message(&_ctx, |m| {
                                                             m.add_embed(|e| {
