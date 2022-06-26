@@ -22,7 +22,7 @@ use tulip_realms_sdk::GOVERNANCE_PROGRAM;
 
 use anyhow::Result;
 use config::Configuration;
-use crossbeam_channel::select;
+use crossbeam_channel::{select, tick};
 use log::{error, info, warn};
 use serenity::model::id::GuildId;
 use serenity::{
@@ -233,6 +233,15 @@ impl Handler {
                             if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
                                 log::error!("failed to insert notif cache {:#?}", err);
                             }
+                            // now sync everything 
+                            if let Err(err) = db.sync_notif_cache_with_proposals(
+                                config.realm_info.realm_key(),
+                                config.realm_info.council_mint_key(),
+                                Utc::now(),
+                                &rpc_client,
+                            ) {
+                                log::error!("failed to sync disk backed cache");
+                            }
                         }
                         Err(err) => {
                             log::error!("failed to load notif cache {:#?}", err);
@@ -427,7 +436,6 @@ impl Handler {
                         }
                     }
                 };
-
                 loop {
                     select! {
                         recv(exit_chan) -> _msg => {
