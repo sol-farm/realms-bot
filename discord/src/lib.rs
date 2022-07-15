@@ -346,15 +346,22 @@ impl Handler {
                                                             _ => log::warn!("unsupported vote type {:#?}", voter_record.vote)
                                                         }
                                                     }
-                                                    let approval_votes =
+                                                    let approval_votes = if approval_votes == 0 {
+                                                        0.0
+                                                    } else {
                                                         spl_token::amount_to_ui_amount(
                                                             approval_votes,
                                                             voter_mint.decimals,
-                                                        );
-                                                    let deny_votes = spl_token::amount_to_ui_amount(
-                                                        deny_votes,
-                                                        voter_mint.decimals,
-                                                    );
+                                                        )
+                                                    };
+                                                    let deny_votes = if deny_votes == 0 {
+                                                        0.0
+                                                    } else {
+                                                        spl_token::amount_to_ui_amount(
+                                                            deny_votes,
+                                                            voter_mint.decimals,
+                                                        )
+                                                    };
                                                     if let Err(err) = ChannelId(config.discord.status_channel)
                                                         .send_message(&_ctx, |m| {
                                                             m.add_embed(|e| {
