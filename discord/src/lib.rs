@@ -16,13 +16,14 @@ use chrono::prelude::*;
 use serenity::prelude::*;
 use serenity::utils::MessageBuilder;
 use solana_program::account_info::IntoAccountInfo;
+use solana_program::program_pack::Pack;
 use std::sync::atomic::AtomicBool;
 use std::{collections::HashSet, sync::Arc};
 use tulip_realms_sdk::GOVERNANCE_PROGRAM;
 
 use anyhow::Result;
 use config::Configuration;
-use crossbeam_channel::{select, tick};
+use crossbeam_channel::select;
 use log::{error, info, warn};
 use serenity::model::id::GuildId;
 use serenity::{
@@ -64,6 +65,14 @@ impl Handler {
             let exit_chan = self.exit_chan.clone();
             let config = self.config.clone();
             let rpc_client = Arc::new(self.config.rpc_client());
+            // we need the mint account type used for voting so that we may display vote counts
+            // as f64 instead of u64
+            let voter_mint = match rpc_client.get_account(&config.realm_info.community_mint_key()) {
+                Ok(voter_mint_acct) => {
+                    spl_token::state::Mint::unpack_unchecked(&voter_mint_acct.data[..]).unwrap()
+                }
+                Err(err) => panic!("failed to load community mint {:#?}", err),
+            };
             //let handler = Arc::new(self.clone());
             let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
             if let Err(err) = db.sync_notif_cache_with_proposals(
@@ -233,14 +242,14 @@ impl Handler {
                             if let Err(err) = db.insert_notif_cache_entry(&notif_cache) {
                                 log::error!("failed to insert notif cache {:#?}", err);
                             }
-                            // now sync everything 
+                            // now sync everything
                             if let Err(err) = db.sync_notif_cache_with_proposals(
                                 config.realm_info.realm_key(),
                                 config.realm_info.council_mint_key(),
                                 Utc::now(),
                                 &rpc_client,
                             ) {
-                                log::error!("failed to sync disk backed cache");
+                                log::error!("failed to sync disk backed cache {:#?}", err);
                             }
                         }
                         Err(err) => {
@@ -309,7 +318,50 @@ impl Handler {
                                                 ) {
                                                     let time_until_end =
                                                         ends_at.signed_duration_since(now);
-
+                                                    let voter_records = match tulip_realms_sdk::utils::get_vote_records_for_proposal(
+                                                        &rpc_client,
+                                                        proposal.key,
+                                                    ) {
+                                                        Ok(voter_records) => voter_records,
+                                                        Err(err) => {
+                                                            log::error!("failed to fetch voter records for proposal {}: {:#?}", proposal.key, err);
+                                                            vec![]
+                                                        }
+                                                    };
+                                                    let mut approval_votes = 0;
+                                                    let mut deny_votes = 0;
+                                                    // do not track relinquished votes
+                                                    for voter_record in
+                                                        voter_records.iter().filter(|vote_record| {
+                                                            !vote_record.is_relinquished
+                                                        })
+                                                    {
+                                                        match voter_record.vote {
+                                                            spl_governance::state::vote_record::Vote::Approve(_) => {
+                                                                approval_votes += voter_record.voter_weight
+                                                            }
+                                                            spl_governance::state::vote_record::Vote::Deny => {
+                                                                deny_votes += voter_record.voter_weight
+                                                            }
+                                                            _ => log::warn!("unsupported vote type {:#?}", voter_record.vote)
+                                                        }
+                                                    }
+                                                    let approval_votes = if approval_votes == 0 {
+                                                        0.0
+                                                    } else {
+                                                        spl_token::amount_to_ui_amount(
+                                                            approval_votes,
+                                                            voter_mint.decimals,
+                                                        )
+                                                    };
+                                                    let deny_votes = if deny_votes == 0 {
+                                                        0.0
+                                                    } else {
+                                                        spl_token::amount_to_ui_amount(
+                                                            deny_votes,
+                                                            voter_mint.decimals,
+                                                        )
+                                                    };
                                                     if let Err(err) = ChannelId(config.discord.status_channel)
                                                         .send_message(&_ctx, |m| {
                                                             m.add_embed(|e| {
@@ -340,6 +392,16 @@ impl Handler {
                                                                 e.field(
                                                                     "description",
                                                                     description.as_str(),
+                                                                    false,
+                                                                );
+                                                                e.field(
+                                                                    "approval vote count",
+                                                                    approval_votes.to_string().as_str(),
+                                                                    false,
+                                                                );
+                                                                e.field(
+                                                                    "deny vote count",
+                                                                    deny_votes.to_string().as_str(),
                                                                     false,
                                                                 );
                                                                 e.field(

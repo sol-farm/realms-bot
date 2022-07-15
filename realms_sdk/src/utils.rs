@@ -1,12 +1,16 @@
+use borsh::BorshDeserialize;
 use chrono::prelude::*;
+use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_filter::RpcFilterType;
 use solana_program::pubkey::Pubkey;
+use spl_governance::state::vote_record::VoteRecordV2;
 
 use crate::GOVERNANCE_TREE;
 use crate::{
     types::{GovernanceV2Wrapper, ProposalV2Wrapper},
     Database,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use tulip_sled_util::types::DbTrees;
 impl Database {
     /// returns a vector of all proposals that are undergoing activte voting
@@ -58,11 +62,70 @@ pub fn governance_notif_cache_key(gov_key: Pubkey) -> String {
     format!("notif_cache_entry-{}", gov_key)
 }
 
+pub fn get_vote_records_for_proposal(
+    rpc: &RpcClient,
+    proposal: Pubkey,
+) -> Result<Vec<VoteRecordV2>> {
+    use crate::GOVERNANCE_PROGRAM;
+    use solana_account_decoder::UiAccountEncoding;
+    use solana_client::rpc_config::RpcAccountInfoConfig;
+    use solana_client::rpc_config::RpcProgramAccountsConfig;
+    use solana_client::rpc_filter::Memcmp;
+    match rpc.get_program_accounts_with_config(
+        &GOVERNANCE_PROGRAM,
+        RpcProgramAccountsConfig {
+            filters: Some(vec![RpcFilterType::Memcmp(Memcmp {
+                offset: 1,
+                bytes: solana_client::rpc_filter::MemcmpEncodedBytes::Bytes(
+                    proposal.to_bytes().to_vec(),
+                ),
+                encoding: None,
+            })]),
+            with_context: None,
+            account_config: RpcAccountInfoConfig {
+                min_context_slot: None,
+                encoding: Some(UiAccountEncoding::Base64),
+                data_slice: None,
+                commitment: None,
+            },
+        },
+    ) {
+        Ok(mut accounts) => {
+            let mut voter_records = Vec::with_capacity(accounts.len());
+            for (key, voter_account) in accounts.iter_mut() {
+                let key = std::mem::take(key);
+                let voter_account = std::mem::take(voter_account);
+                match spl_governance::state::vote_record::VoteRecordV2::deserialize(
+                    &mut &voter_account.data[..],
+                ) {
+                    Ok(voter_record) => {
+                        voter_records.push(voter_record);
+                    }
+                    Err(err) => {
+                        log::error!("failed to deserialize voter record {}: {:#?}", key, err)
+                    }
+                }
+            }
+            Ok(voter_records)
+        }
+        Err(err) => Err(anyhow!("failed to find voter records {:#?}", err)),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::test::{get_tulip_community_mint, get_tulip_council_mint, get_tulip_realm_account};
     use solana_client::rpc_client::RpcClient;
+    use static_pubkey::static_pubkey;
+    #[tokio::test(flavor = "multi_thread")]
+
+    async fn test_get_vote_records_for_proposal() {
+        let proposal = static_pubkey!("9z4TmXcvSUksTB1LiUSHYFxoodH67Fi2Wt5riCo7i61U");
+        let rpc = RpcClient::new("http://51.222.241.93:8899".to_string());
+        let voter_records = get_vote_records_for_proposal(&rpc, proposal).unwrap();
+        assert_eq!(voter_records.len(), 8);
+    }
     #[test]
     fn test_timestamp() {
         let now = Utc::now();
