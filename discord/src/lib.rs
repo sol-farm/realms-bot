@@ -77,6 +77,7 @@ impl Handler {
             let db = tulip_realms_sdk::Database::new(config.db_opts.clone()).unwrap();
             if let Err(err) = db.sync_notif_cache_with_proposals(
                 config.realm_info.realm_key(),
+                config.realm_info.community_mint_key(),
                 config.realm_info.council_mint_key(),
                 Utc::now(),
                 &rpc_client,
@@ -130,6 +131,7 @@ impl Handler {
                                 .proposals_count
                                 .gt(&notif_cache.last_proposals_count)
                             {
+                                log::warn!("found new proposals. proposals_count_previous {}, proposals_count_new {}", notif_cache.last_proposals_count, governance_account.governance.proposals_count);
                                 let mut new_proposals = Vec::with_capacity(
                                     (governance_account.governance.proposals_count
                                         - notif_cache.last_proposals_count)
@@ -224,7 +226,7 @@ impl Handler {
                                         if !contains_proposal {
                                             notif_cache
                                                 .voting_proposals_last_notification_time
-                                                .push((proposal.key, 0));
+                                                .push((proposal.key, Utc::now().timestamp()));
                                         }
                                         // only insert proposal after a successful notification
                                         if let Err(err) = db.insert_proposal(proposal) {
@@ -245,6 +247,7 @@ impl Handler {
                             // now sync everything
                             if let Err(err) = db.sync_notif_cache_with_proposals(
                                 config.realm_info.realm_key(),
+                                config.realm_info.community_mint_key(),
                                 config.realm_info.council_mint_key(),
                                 Utc::now(),
                                 &rpc_client,
