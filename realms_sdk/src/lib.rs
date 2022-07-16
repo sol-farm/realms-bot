@@ -232,6 +232,7 @@ impl Database {
     pub fn sync_notif_cache_with_proposals(
         &self,
         realm_key: Pubkey,
+        community_mint_key: Pubkey,
         council_mint_key: Pubkey,
         now: DateTime<Utc>,
         rpc: &RpcClient,
@@ -247,8 +248,53 @@ impl Database {
         let mint_gov = get_governance_wrapper(&main_gov_info).unwrap();
         self.insert_governance(&mint_gov)?;
         let mut notif_cache = self.get_governance_notif_cache(mint_gov_key)?;
-
-        let mut proposals = self.list_proposals()?;
+        log::info!("notif_cache {:#?}", notif_cache);
+        let proposals = self.list_proposals()?;
+        log::info!("proposals count {}", proposals.len());
+        let mut proposals = if proposals.len().lt(&(mint_gov.governance.proposals_count as usize)) {
+            log::warn!("proposal count of {} less than governance count {}, backfilling", proposals.len(), mint_gov.governance.proposals_count);
+            for idx in proposals.len()..(mint_gov.governance.proposals_count as usize) {
+                let proposal_key =
+                spl_governance::state::proposal::get_proposal_address(
+                    &GOVERNANCE_PROGRAM,
+                    &mint_gov_key,
+                    &community_mint_key,
+                    &(idx as u32).to_le_bytes()[..],
+                );
+                log::info!("calculated new proposal. idx {}, key {}", idx, proposal_key);
+            match rpc.get_account(&proposal_key) {
+                Ok(account) => {
+                    let mut account_tup = (proposal_key, account);
+                    let account_info = account_tup.into_account_info();
+                    match crate::types::get_proposal_wrapper(
+                        &account_info,
+                    ) {
+                        Ok(proposal) => {
+                            if let Err(err) = self.insert_proposal(&proposal) {
+                                log::error!("failed to insert new proposal proposal {}: {:#?}", proposal.key, err)
+                            }
+                        }
+                        Err(err) => {
+                            log::error!(
+                                "failed to get proposal account {:#?}",
+                                err
+                            );
+                        }
+                    }
+                }
+                Err(err) => {
+                    log::error!(
+                        "failed to get proposal account {:#?}",
+                        err
+                    );
+                    continue;
+                }
+            }
+            }
+            self.list_proposals()?
+        } else {
+            proposals
+        };
         // populate any actively voting proposals that are not in a draft state
         proposals.iter_mut().for_each(|proposal| {
             let proposal_account = rpc.get_account(&proposal.key).unwrap();
@@ -457,6 +503,7 @@ mod test {
             db.insert_notif_cache_entry(&notif_cache).unwrap();
             db.sync_notif_cache_with_proposals(
                 get_tulip_realm_account(),
+                get_tulip_community_mint(),
                 get_tulip_council_mint(),
                 Utc::now(),
                 &rpc,
